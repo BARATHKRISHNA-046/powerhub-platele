@@ -1,5 +1,6 @@
 import React from 'react';
-import { useApp } from '../context/AppContext';
+import { compressImageFile, useApp } from '../context/AppContext';
+
 import { Zap, Bell, RotateCcw, Users, Shield, GraduationCap } from 'lucide-react';
 import NotificationDrawer from './NotificationDrawer';
 
@@ -178,18 +179,23 @@ export default function Navbar() {
                   type="file" 
                   accept="image/*" 
                   style={{ display: 'none' }}
-                  onChange={(e) => {
+                  onChange={async (e) => {
                     const file = e.target.files?.[0];
                     if (file) {
-                      const reader = new FileReader();
-                      reader.onload = (event) => {
-                        useApp().updateUserProfilePic(currentUser.id, event.target.result);
-                        alert(`Profile picture updated from gallery for ${currentUser.name}!`);
-                      };
-                      reader.readAsDataURL(file);
+                      try {
+                        const compressedUrl = await compressImageFile(file);
+                        if (compressedUrl) {
+                          useApp().updateUserProfilePic(currentUser.id, compressedUrl);
+                          alert(`Profile picture updated cleanly for ${currentUser.name}!`);
+                        }
+                      } catch (err) {
+                        console.error('Image compression error:', err);
+                      }
                     }
                   }}
                 />
+
+
               </label>
 
               <div style={{ display: 'flex', flexDirection: 'column' }}>

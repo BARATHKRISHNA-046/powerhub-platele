@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { useApp } from '../context/AppContext';
+import { compressImageFile, useApp } from '../context/AppContext';
+
 import { 
   FileText, Download, Printer, User, Mail, Phone, MapPin, 
   Linkedin, Github, Globe, Calendar, Award, CheckCircle2, 
@@ -193,19 +194,24 @@ export default function ResumeBuilder() {
                       type="file" 
                       accept="image/*" 
                       style={{ display: 'none' }}
-                      onChange={(e) => {
+                      onChange={async (e) => {
                         const file = e.target.files?.[0];
                         if (file) {
-                          const reader = new FileReader();
-                          reader.onload = (evt) => {
-                            useApp().updateUserProfilePic(currentUser.id, evt.target.result);
-                            alert(`Profile picture updated from gallery for ${currentUser.name}!`);
-                          };
-                          reader.readAsDataURL(file);
+                          try {
+                            const compressedUrl = await compressImageFile(file);
+                            if (compressedUrl && useApp().updateUserProfilePic) {
+                              useApp().updateUserProfilePic(currentUser.id, compressedUrl);
+                              alert(`Profile picture updated cleanly for ${currentUser.name}!`);
+                            }
+                          } catch (err) {
+                            console.error('Image compression error:', err);
+                          }
                         }
                       }}
                     />
                   </label>
+
+
                 </div>
               </div>
 

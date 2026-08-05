@@ -34,7 +34,46 @@ const loadSavedDatabase = () => {
   }
 };
 
+// Helper function to compress high-res gallery images to lightweight Data URLs (<30KB)
+export const compressImageFile = (file, maxWidth = 280, maxHeight = 280, quality = 0.85) => {
+  return new Promise((resolve) => {
+    if (!file || !file.type.startsWith('image/')) return resolve(null);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = () => resolve(e.target.result);
+      img.src = e.target.result;
+    };
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(file);
+  });
+};
+
 export const AppProvider = ({ children }) => {
+
   const savedDb = loadSavedDatabase();
 
   // Users State (with seed merge protection)
@@ -132,6 +171,7 @@ export const AppProvider = ({ children }) => {
   ]);
 
   // UNIFIED AUTO-SAVE HOOK: Writes full database state on any mutation
+
   useEffect(() => {
     const dbPayload = {
       users,
@@ -150,13 +190,14 @@ export const AppProvider = ({ children }) => {
     try {
       localStorage.setItem(DB_STORAGE_KEY, JSON.stringify(dbPayload));
     } catch (err) {
-      console.error('Error auto-saving database to persistent storage:', err);
+      console.warn('LocalStorage save warning:', err);
     }
   }, [
     users, teams, submissions, skillRatings, announcements, 
     auditLogs, resumeProfiles, googleMeetConfig, googleDriveUrl, 
     googleClassroomUrl, monthlyHabits
   ]);
+
 
   const currentUser = users.find(u => u.id === currentUserId) || users[0];
 
