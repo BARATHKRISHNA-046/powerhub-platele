@@ -111,8 +111,11 @@ export const AppProvider = ({ children }) => {
     return MONTHLY_DAILY_SCHEDULES;
   });
 
-  const [currentUserId, setCurrentUserId] = useState('user-shankar');
+  const [currentUserId, setCurrentUserId] = useState(() => {
+    return localStorage.getItem('ph_active_user_id') || 'user-barath';
+  });
   const [authScreen, setAuthScreen] = useState('profile_picker');
+
   const [currentRoleView, setCurrentRoleView] = useState('student');
 
 
@@ -159,9 +162,12 @@ export const AppProvider = ({ children }) => {
 
   const selectProfile = (userId) => {
     setCurrentUserId(userId);
+    localStorage.setItem('ph_active_user_id', userId);
     const user = users.find(u => u.id === userId);
     if (user && user.roles.length === 1) {
       setCurrentRoleView(user.roles[0]);
+    } else if (user && user.roles.includes('mentor')) {
+      setCurrentRoleView('mentor');
     } else {
       setCurrentRoleView('student');
     }
