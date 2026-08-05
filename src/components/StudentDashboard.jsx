@@ -411,12 +411,26 @@ export default function StudentDashboard() {
                   {globalLeaderboard.map((student, idx) => (
                     <tr key={student.id} style={{ borderBottom: '1px solid var(--border-light)', background: student.id === currentUser.id ? '#f0f9ff' : 'transparent' }}>
                       <td style={{ padding: '0.85rem 0.75rem' }}>#{idx + 1}</td>
-                      <td style={{ padding: '0.85rem 0.75rem', fontWeight: '800' }}>{student.name} ({student.domain})</td>
+                      <td style={{ padding: '0.85rem 0.75rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                        {student.profilePic || student.avatarUrl ? (
+                          <img 
+                            src={student.profilePic || student.avatarUrl} 
+                            alt={student.name} 
+                            style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '1.5px solid #2563eb', flexShrink: 0 }} 
+                          />
+                        ) : (
+                          <div className="avatar-circle" style={{ width: '32px', height: '32px', backgroundColor: student.avatarBg || '#fb923c', fontSize: '0.8rem', flexShrink: 0 }}>
+                            {student.initials}
+                          </div>
+                        )}
+                        <span>{student.name} ({student.domain})</span>
+                      </td>
                       <td style={{ padding: '0.85rem 0.75rem' }}>-</td>
                       <td style={{ padding: '0.85rem 0.75rem' }}>✔ {student.submissionCount} On-Time</td>
                       <td style={{ padding: '0.85rem 0.75rem', textAlign: 'right', fontWeight: '900' }}>{student.totalScore} pts</td>
                     </tr>
                   ))}
+
                 </tbody>
               </table>
             </div>

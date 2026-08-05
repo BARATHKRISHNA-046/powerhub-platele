@@ -184,11 +184,12 @@ export const AppProvider = ({ children }) => {
   const updateUserProfilePic = (userId, profilePicUrl) => {
     setUsers(prev => prev.map(u => {
       if (u.id === userId) {
-        return { ...u, profilePic: profilePicUrl };
+        return { ...u, profilePic: profilePicUrl, avatarUrl: profilePicUrl };
       }
       return u;
     }));
   };
+
 
   // Update Resume Profile for student
   const updateResumeProfile = (userId, updatedData) => {
