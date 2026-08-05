@@ -169,32 +169,7 @@ export const AI_TEAM_AVATARS = [
   }
 ];
 
-export const INITIAL_TEAMS = [
-  {
-    id: 'team-1',
-    name: 'CyberDragons',
-    teamAvatarUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=300&q=80',
-    bootcampId: 'bootcamp-1',
-    projectId: 'proj-101',
-    projectName: 'Fullstack Micro-SaaS Platform',
-    leadStudentId: 'user-shankar',
-    memberIds: ['user-shankar', 'user-gowtham', 'user-navin'],
-    githubUrl: 'https://github.com/shankar/cyberdragons-saas-core',
-    createdAt: '2026-06-10T10:00:00Z'
-  },
-  {
-    id: 'team-2',
-    name: 'AlgoRockets',
-    teamAvatarUrl: 'https://images.unsplash.com/photo-1634017839464-5c339ebe3cb4?auto=format&fit=crop&w=300&q=80',
-    bootcampId: 'bootcamp-1',
-    projectId: 'proj-102',
-    projectName: 'AI Smart Analytics Engine',
-    leadStudentId: 'user-barath',
-    memberIds: ['user-barath', 'user-kanika', 'user-abinav'],
-    githubUrl: 'https://github.com/barathkrishna/algorockets-ai-analytics',
-    createdAt: '2026-06-15T14:30:00Z'
-  }
-];
+export const INITIAL_TEAMS = [];
 
 export const INITIAL_BOOTCAMPS = [
   {
@@ -241,25 +216,10 @@ export const MONTHLY_DAILY_SCHEDULES = {
 
 export const INITIAL_SUBMISSIONS = [];
 
-export const INITIAL_SKILL_RATINGS = [
-  { studentId: 'user-barath', skill: 'Frontend', rating: 4.9 },
-  { studentId: 'user-barath', skill: 'Backend', rating: 5.0 },
-  { studentId: 'user-shankar', skill: 'Frontend', rating: 4.8 },
-  { studentId: 'user-navin', skill: 'DevOps', rating: 4.9 }
-];
+export const INITIAL_SKILL_RATINGS = [];
 
-export const INITIAL_ANNOUNCEMENTS = [
-  {
-    id: 'ann-1',
-    authorId: 'user-barath',
-    authorName: 'BARATHKRISHNA H (Lead Mentor)',
-    bootcampId: 'all',
-    title: '🚀 Welcome to Sprint Deliverables!',
-    message: 'Welcome everyone! Daily habit tracking is live. Make sure to complete your 7:00 PM study session and submit your GitHub deliverable before the 8:30 PM cutoff.',
-    createdAt: '2026-08-05T10:00:00Z',
-    isPinned: true
-  }
-];
+export const INITIAL_ANNOUNCEMENTS = [];
+
 
 export const INITIAL_AUDIT_LOGS = [];
 

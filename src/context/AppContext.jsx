@@ -20,7 +20,8 @@ import {
 
 const AppContext = createContext();
 
-const DB_STORAGE_KEY = 'POWERHUB_PERMANENT_DB_V10';
+const DB_STORAGE_KEY = 'POWERHUB_PERMANENT_DB_V11';
+
 
 // Helper to load persistent DB state from LocalStorage with fallback merging
 const loadSavedDatabase = () => {
