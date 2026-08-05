@@ -112,8 +112,9 @@ export const AppProvider = ({ children }) => {
   });
 
   const [currentUserId, setCurrentUserId] = useState('user-shankar');
-  const [authScreen, setAuthScreen] = useState('dashboard');
+  const [authScreen, setAuthScreen] = useState('profile_picker');
   const [currentRoleView, setCurrentRoleView] = useState('student');
+
 
   const [notifications, setNotifications] = useState([
     {

@@ -87,10 +87,20 @@ export default function ProfilePicker() {
                   backgroundColor: user.avatarBg || 'var(--primary-blue)',
                   fontSize: '2.5rem',
                   position: 'relative',
-                  border: isDualRole ? '4px solid var(--accent-gold)' : '3px solid transparent'
+                  border: isDualRole ? '4px solid var(--accent-gold)' : '3px solid transparent',
+                  overflow: 'hidden'
                 }}
               >
-                {user.initials}
+                {user.profilePic ? (
+                  <img 
+                    src={user.profilePic} 
+                    alt={user.name} 
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} 
+                  />
+                ) : (
+                  user.initials
+                )}
+
                 {isDualRole && (
                   <div 
                     title="Dual Role: Student & Mentor View Switcher"
