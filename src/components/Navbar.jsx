@@ -208,6 +208,29 @@ export default function Navbar() {
               </div>
             </div>
 
+            {/* Multi-Device Cloud Sync Button */}
+            <button
+              onClick={useApp().syncCloudDatabase}
+              title="Sync live teams, announcements, and scores across mobile and desktop devices"
+              style={{
+                background: 'linear-gradient(135deg, #0284c7, #2563eb)',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '0.4rem 0.75rem',
+                fontSize: '0.78rem',
+                fontWeight: '800',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                cursor: 'pointer',
+                boxShadow: '0 2px 6px rgba(37,99,235,0.25)'
+              }}
+            >
+              ☁️ Sync Cloud
+            </button>
+
+
 
             {/* Persistent DB Backup Export & Restore Controls (MENTOR PROFILE ONLY) */}
             {currentRoleView === 'mentor' && (

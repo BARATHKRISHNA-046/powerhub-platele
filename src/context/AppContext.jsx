@@ -171,8 +171,59 @@ export const AppProvider = ({ children }) => {
     }
   ]);
 
-  // UNIFIED AUTO-SAVE HOOK: Writes full database state on any mutation
+const CLOUD_SYNC_ENDPOINT = 'https://jsonblob.com/api/jsonBlob/019fd29a-5c27-7bf2-906e-eb5b0a244f94';
 
+  // AUTOMATIC CLOUD SYNC ON MOUNT: Syncs live data across laptops, phones, and browsers
+  useEffect(() => {
+    const fetchLatestCloudDb = async () => {
+      try {
+        const res = await fetch(CLOUD_SYNC_ENDPOINT, { cache: 'no-store' });
+        if (res.ok) {
+          const cloudData = await res.json();
+          if (cloudData && typeof cloudData === 'object') {
+            if (Array.isArray(cloudData.users) && cloudData.users.length > 0) setUsers(cloudData.users);
+            if (Array.isArray(cloudData.teams)) setTeams(cloudData.teams);
+            if (Array.isArray(cloudData.announcements)) setAnnouncements(cloudData.announcements);
+            if (Array.isArray(cloudData.submissions)) setSubmissions(cloudData.submissions);
+            if (Array.isArray(cloudData.skillRatings)) setSkillRatings(cloudData.skillRatings);
+            if (cloudData.googleMeetConfig) setGoogleMeetConfig(cloudData.googleMeetConfig);
+            if (cloudData.googleDriveUrl) setGoogleDriveUrl(cloudData.googleDriveUrl);
+            if (cloudData.googleClassroomUrl) setGoogleClassroomUrl(cloudData.googleClassroomUrl);
+            if (cloudData.monthlyHabits) setMonthlyHabits(cloudData.monthlyHabits);
+          }
+        }
+      } catch (err) {
+        console.warn('Initial cloud sync notice:', err);
+      }
+    };
+    fetchLatestCloudDb();
+  }, []);
+
+  // Manual Sync Cloud Database function
+  const syncCloudDatabase = async () => {
+    try {
+      const res = await fetch(CLOUD_SYNC_ENDPOINT, { cache: 'no-store' });
+      if (res.ok) {
+        const cloudData = await res.json();
+        if (cloudData && typeof cloudData === 'object') {
+          if (Array.isArray(cloudData.users) && cloudData.users.length > 0) setUsers(cloudData.users);
+          if (Array.isArray(cloudData.teams)) setTeams(cloudData.teams);
+          if (Array.isArray(cloudData.announcements)) setAnnouncements(cloudData.announcements);
+          if (Array.isArray(cloudData.submissions)) setSubmissions(cloudData.submissions);
+          if (Array.isArray(cloudData.skillRatings)) setSkillRatings(cloudData.skillRatings);
+          if (cloudData.googleMeetConfig) setGoogleMeetConfig(cloudData.googleMeetConfig);
+          if (cloudData.googleDriveUrl) setGoogleDriveUrl(cloudData.googleDriveUrl);
+          if (cloudData.googleClassroomUrl) setGoogleClassroomUrl(cloudData.googleClassroomUrl);
+          if (cloudData.monthlyHabits) setMonthlyHabits(cloudData.monthlyHabits);
+          alert('☁️ Live Cloud Sync Complete! Teams, Announcements & Submissions updated across all devices.');
+        }
+      }
+    } catch (err) {
+      alert('Cloud sync temporarily unavailable. Using local device data.');
+    }
+  };
+
+  // UNIFIED AUTO-SAVE & MULTI-DEVICE CLOUD SYNC HOOK
   useEffect(() => {
     const dbPayload = {
       users,
@@ -188,16 +239,30 @@ export const AppProvider = ({ children }) => {
       monthlyHabits,
       lastSavedAt: new Date().toISOString()
     };
+
+    // 1. Save to local device storage
     try {
       localStorage.setItem(DB_STORAGE_KEY, JSON.stringify(dbPayload));
     } catch (err) {
       console.warn('LocalStorage save warning:', err);
     }
+
+    // 2. Push update to multi-device cloud sync bucket
+    const timer = setTimeout(() => {
+      fetch(CLOUD_SYNC_ENDPOINT, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dbPayload)
+      }).catch(err => console.warn('Cloud update push notice:', err));
+    }, 800);
+
+    return () => clearTimeout(timer);
   }, [
     users, teams, submissions, skillRatings, announcements, 
     auditLogs, resumeProfiles, googleMeetConfig, googleDriveUrl, 
     googleClassroomUrl, monthlyHabits
   ]);
+
 
 
   const currentUser = users.find(u => u.id === currentUserId) || users[0];
@@ -478,7 +543,9 @@ export const AppProvider = ({ children }) => {
       deleteAnnouncement,
       exportDatabase,
       importDatabase,
+      syncCloudDatabase,
       notifications
+
     }}>
       {children}
     </AppContext.Provider>
