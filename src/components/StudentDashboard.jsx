@@ -1240,21 +1240,22 @@ export default function StudentDashboard() {
                           strokeWidth="6" 
                           fill="transparent" 
                           strokeDasharray={2 * Math.PI * 28}
-                          strokeDashoffset={2 * Math.PI * 28 * (1 - ((myScore.totalScore % 25) / 25))}
+                          strokeDashoffset={2 * Math.PI * 28 * (1 - (((myScore?.totalScore || 0) % 25) / 25))}
                           strokeLinecap="round"
                           style={{ transition: 'stroke-dashoffset 800ms ease' }}
                         />
                       </svg>
                       <span style={{ fontSize: '1.35rem', fontWeight: '900', color: '#1d4ed8', zIndex: 1 }}>
-                        {myScore.totalScore}
+                        {myScore?.totalScore || 0}
                       </span>
                     </div>
 
                     <div style={{ fontSize: '0.82rem', fontWeight: '800', color: '#0f172a' }}>Total Points</div>
                     <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: '600', marginTop: '0.1rem' }}>
-                      Progress to next 25-pt tier: {(myScore.totalScore % 25)}/25
+                      Progress to next 25-pt tier: {((myScore?.totalScore || 0) % 25)}/25
                     </div>
                   </div>
+
 
                   {/* STAT CARD B: CURRENT RANK WITH ▲ / ▼ INDICATOR */}
                   <div style={{ background: 'linear-gradient(135deg, #ffffff, #eff6ff)', border: '1.5px solid #bfdbfe', borderRadius: '16px', padding: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
