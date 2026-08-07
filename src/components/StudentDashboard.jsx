@@ -648,10 +648,14 @@ export default function StudentDashboard() {
                     <tr key={student.id} style={{ borderBottom: '1px solid var(--border-light)', background: student.id === currentUser.id ? '#f0f9ff' : 'transparent' }}>
                       <td style={{ padding: '0.85rem 0.75rem' }}>#{idx + 1}</td>
                       <td style={{ padding: '0.85rem 0.75rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                        {student.profilePic || student.avatarUrl ? (
+                        {student.profilePicUrl || student.profilePic || student.avatarUrl ? (
                           <img 
-                            src={student.profilePic || student.avatarUrl} 
+                            src={student.profilePicUrl || student.profilePic || student.avatarUrl} 
                             alt={student.name} 
+                            onError={(e) => {
+                              e.currentTarget.onerror = null;
+                              e.currentTarget.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(student.name)}`;
+                            }}
                             style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '1.5px solid #2563eb', flexShrink: 0 }} 
                           />
                         ) : (
@@ -659,6 +663,7 @@ export default function StudentDashboard() {
                             {student.initials}
                           </div>
                         )}
+
                         <span>{student.name} ({student.domain})</span>
                       </td>
                       <td style={{ padding: '0.85rem 0.75rem' }}>-</td>

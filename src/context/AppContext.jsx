@@ -310,15 +310,22 @@ const CLOUD_SYNC_ENDPOINT = 'https://jsonblob.com/api/jsonBlob/019fd29a-5c27-7bf
     }
   };
 
-  // Update Profile Picture for student via Gallery
+  // Update Profile Picture for student with field standardization & logging
   const updateUserProfilePic = (userId, profilePicUrl) => {
+    console.log(`[Profile Pic Upload] Updating DB/State for user ${userId} with URL:`, profilePicUrl);
     setUsers(prev => prev.map(u => {
       if (u.id === userId) {
-        return { ...u, profilePic: profilePicUrl, avatarUrl: profilePicUrl };
+        return { 
+          ...u, 
+          profilePicUrl: profilePicUrl,
+          profilePic: profilePicUrl, 
+          avatarUrl: profilePicUrl 
+        };
       }
       return u;
     }));
   };
+
 
 
   // Update Resume Profile for student

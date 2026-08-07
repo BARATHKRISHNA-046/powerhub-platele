@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { compressImageFile, useApp } from '../context/AppContext';
+import { uploadProfilePicture } from '../lib/uploadSubmission';
 
 import { 
   FileText, Download, Printer, User, Mail, Phone, MapPin, 
@@ -10,8 +11,9 @@ import {
 export default function ResumeBuilder() {
   const { 
     currentUser, users, resumeProfiles, updateResumeProfile, 
-    calculateStudentScore, submissions, skillRatings, teams 
+    updateUserProfilePic, calculateStudentScore, submissions, skillRatings, teams 
   } = useApp();
+
 
   const userProfile = (resumeProfiles && resumeProfiles[currentUser.id]) || {
     fullName: currentUser.name || 'STUDENT NAME',
@@ -168,51 +170,60 @@ export default function ResumeBuilder() {
 
               {/* Profile Picture Upload from Device Gallery */}
               <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '1rem', background: '#ffffff', padding: '0.85rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
-                {currentUser.profilePic ? (
-                  <img 
-                    src={currentUser.profilePic} 
-                    alt={currentUser.name} 
-                    style={{ width: '54px', height: '54px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #2563eb' }} 
-                  />
-                ) : (
-                  <div className="avatar-circle" style={{ width: '54px', height: '54px', backgroundColor: currentUser.avatarBg || '#fb923c', fontSize: '1.2rem' }}>
-                    {currentUser.initials}
-                  </div>
-                )}
+                <img 
+                  src={(currentUser.profilePicUrl || currentUser.profilePic || currentUser.avatarUrl) ? ((currentUser.profilePicUrl || currentUser.profilePic || currentUser.avatarUrl).includes('data:image') ? (currentUser.profilePicUrl || currentUser.profilePic || currentUser.avatarUrl) : `${currentUser.profilePicUrl || currentUser.profilePic || currentUser.avatarUrl}?t=${Date.now()}`) : `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(currentUser.name)}`} 
+                  alt={currentUser.name} 
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(currentUser.name)}`;
+                  }}
+                  style={{ width: '54px', height: '54px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #2563eb' }} 
+                />
 
                 <div>
                   <span style={{ fontSize: '0.82rem', fontWeight: '800', color: '#0f172a', display: 'block' }}>
                     Profile Picture (Gallery Upload)
                   </span>
                   <span style={{ fontSize: '0.72rem', color: '#64748b', display: 'block', marginBottom: '0.4rem' }}>
-                    Upload JPEG, PNG, or WebP photo from device gallery.
+                    Upload PNG, JPEG, or WEBP photo (max 2MB limit).
                   </span>
 
                   <label style={{ background: '#2563eb', color: '#ffffff', padding: '0.35rem 0.85rem', borderRadius: '6px', fontSize: '0.78rem', fontWeight: '800', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
                     📷 Select Photo from Gallery
                     <input 
                       type="file" 
-                      accept="image/*" 
+                      accept="image/png, image/jpeg, image/webp" 
                       style={{ display: 'none' }}
                       onChange={async (e) => {
                         const file = e.target.files?.[0];
-                        if (file) {
-                          try {
-                            const compressedUrl = await compressImageFile(file);
-                            if (compressedUrl && useApp().updateUserProfilePic) {
-                              useApp().updateUserProfilePic(currentUser.id, compressedUrl);
-                              alert(`Profile picture updated cleanly for ${currentUser.name}!`);
-                            }
-                          } catch (err) {
-                            console.error('Image compression error:', err);
+                        if (!file) return;
+
+                        const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+                        if (!validTypes.includes(file.type.toLowerCase())) {
+                          alert('❌ Invalid File Format! Please select a PNG, JPEG, or WEBP image.');
+                          return;
+                        }
+
+                        if (file.size > 2 * 1024 * 1024) {
+                          alert(`❌ File Size Exceeds 2MB Limit! Selected file is ${(file.size / 1024 / 1024).toFixed(2)} MB.`);
+                          return;
+                        }
+
+                        try {
+                          const res = await uploadProfilePicture(file);
+                          if (res && res.profilePicUrl) {
+                            updateUserProfilePic(currentUser.id, res.profilePicUrl);
+                            alert(`Profile picture updated cleanly for ${currentUser.name}!`);
                           }
+                        } catch (err) {
+                          console.error('[Resume Profile Pic Upload Error]', err);
+                          alert(err.message || 'Failed to upload profile picture.');
                         }
                       }}
                     />
                   </label>
-
-
                 </div>
+
               </div>
 
 

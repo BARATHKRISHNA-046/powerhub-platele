@@ -1,15 +1,53 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { compressImageFile, useApp } from '../context/AppContext';
-
-import { Zap, Bell, RotateCcw, Users, Shield, GraduationCap } from 'lucide-react';
+import { uploadProfilePicture } from '../lib/uploadSubmission';
+import { Zap, Bell, RotateCcw, Users, Shield, GraduationCap, Loader2 } from 'lucide-react';
 import NotificationDrawer from './NotificationDrawer';
 
 export default function Navbar() {
-  const { currentUser, currentRoleView, toggleRoleView, setAuthScreen, notifications } = useApp();
-  const [showNotifDrawer, setShowNotifDrawer] = React.useState(false);
+  const { currentUser, currentRoleView, toggleRoleView, setAuthScreen, notifications, updateUserProfilePic } = useApp();
+  const [showNotifDrawer, setShowNotifDrawer] = useState(false);
+  const [isUploadingPic, setIsUploadingPic] = useState(false);
 
   const isDualRole = currentUser.roles.includes('student') && currentUser.roles.includes('mentor');
   const unreadCount = notifications.filter(n => !n.isRead).length;
+
+  const avatarSrc = currentUser.profilePicUrl || currentUser.profilePic || currentUser.avatarUrl;
+  const fallbackAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(currentUser.name)}`;
+
+  const handlePicUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    console.log('[Navbar Profile Pic Upload] File selected:', file.name, file.size, file.type);
+
+    // 1. Validation: accept only image/png, image/jpeg, image/webp; max size 2MB
+    const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+    if (!validTypes.includes(file.type.toLowerCase())) {
+      alert('❌ Invalid File Format! Please select a PNG, JPEG, or WEBP image.');
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      alert(`❌ File Size Exceeds 2MB Limit! Selected file is ${(file.size / 1024 / 1024).toFixed(2)} MB.`);
+      return;
+    }
+
+    setIsUploadingPic(true);
+    try {
+      const res = await uploadProfilePicture(file);
+      if (res && res.profilePicUrl) {
+        updateUserProfilePic(currentUser.id, res.profilePicUrl);
+        console.log('[Navbar Profile Pic Upload] Successfully updated profile picture for:', currentUser.name);
+      }
+    } catch (err) {
+      console.error('[Navbar Profile Pic Upload Error]', err);
+      alert(err.message || 'Failed to upload profile picture.');
+    } finally {
+      setIsUploadingPic(false);
+    }
+  };
+
 
   return (
     <>
@@ -146,56 +184,48 @@ export default function Navbar() {
             {/* User Avatar & Gallery Profile Pic Update */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <label 
-                style={{ cursor: 'pointer', position: 'relative' }} 
+                style={{ cursor: isUploadingPic ? 'wait' : 'pointer', position: 'relative', display: 'inline-block' }} 
                 title="Click to update profile picture from device gallery"
               >
-                {currentUser.profilePic ? (
-                  <img 
-                    src={currentUser.profilePic} 
-                    alt={currentUser.name} 
-                    style={{
-                      width: '38px',
-                      height: '38px',
-                      borderRadius: '50%',
-                      objectFit: 'cover',
-                      border: '2px solid #2563eb',
-                      boxShadow: '0 2px 6px rgba(0,0,0,0.15)'
-                    }} 
-                  />
-                ) : (
-                  <div 
-                    className="avatar-circle"
-                    style={{
-                      width: '38px',
-                      height: '38px',
-                      backgroundColor: currentUser.avatarBg || '#fb923c',
-                      fontSize: '0.85rem'
-                    }}
-                  >
-                    {currentUser.initials}
+                {isUploadingPic && (
+                  <div style={{
+                    position: 'absolute',
+                    inset: 0,
+                    borderRadius: '50%',
+                    background: 'rgba(0,0,0,0.4)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 10
+                  }}>
+                    <Loader2 size={18} className="animate-spin" style={{ color: '#ffffff' }} />
                   </div>
                 )}
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  style={{ display: 'none' }}
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      try {
-                        const compressedUrl = await compressImageFile(file);
-                        if (compressedUrl) {
-                          useApp().updateUserProfilePic(currentUser.id, compressedUrl);
-                          alert(`Profile picture updated cleanly for ${currentUser.name}!`);
-                        }
-                      } catch (err) {
-                        console.error('Image compression error:', err);
-                      }
-                    }
+
+                <img 
+                  src={avatarSrc ? (avatarSrc.includes('data:image') ? avatarSrc : `${avatarSrc}?t=${Date.now()}`) : fallbackAvatar} 
+                  alt={currentUser.name} 
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = fallbackAvatar;
                   }}
+                  style={{
+                    width: '38px',
+                    height: '38px',
+                    borderRadius: '50%',
+                    objectFit: 'cover',
+                    border: '2px solid #2563eb',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.15)'
+                  }} 
                 />
 
-
+                <input 
+                  type="file" 
+                  accept="image/png, image/jpeg, image/webp" 
+                  disabled={isUploadingPic}
+                  style={{ display: 'none' }}
+                  onChange={handlePicUpload}
+                />
               </label>
 
               <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -207,6 +237,7 @@ export default function Navbar() {
                 </span>
               </div>
             </div>
+
 
             {/* Multi-Device Cloud Sync Button */}
             <button

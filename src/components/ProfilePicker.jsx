@@ -371,15 +371,20 @@ export default function ProfilePicker() {
                         transition: 'all 0.35s ease'
                       }}
                     >
-                      {user.profilePic ? (
+                      {user.profilePicUrl || user.profilePic || user.avatarUrl ? (
                         <img 
-                          src={user.profilePic} 
+                          src={user.profilePicUrl || user.profilePic || user.avatarUrl} 
                           alt={user.name} 
+                          onError={(e) => {
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(user.name)}`;
+                          }}
                           style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} 
                         />
                       ) : (
                         user.initials
                       )}
+
                     </div>
 
                     {isDualRole && (
