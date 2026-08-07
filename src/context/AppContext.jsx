@@ -144,12 +144,32 @@ export const AppProvider = ({ children }) => {
     return INITIAL_GOOGLE_CLASSROOM_URL;
   });
 
-  // Monthly Habits State
-  const [selectedScheduleMonth, setSelectedScheduleMonth] = useState('August 2026');
-  const [monthlyHabits, setMonthlyHabits] = useState(() => {
-    if (savedDb && savedDb.monthlyHabits) return savedDb.monthlyHabits;
-    return MONTHLY_DAILY_SCHEDULES;
+  // Monthly Habits Persistence State keyed by YYYY-MM-DD
+  const [selectedScheduleMonth, setSelectedScheduleMonth] = useState(() => {
+    const now = new Date();
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    const monthName = `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
+    const SCHEDULE_MONTHS = [
+      'August 2026', 'September 2026', 'October 2026', 'November 2026',
+      'December 2026', 'January 2027', 'February 2027', 'March 2027'
+    ];
+    return SCHEDULE_MONTHS.includes(monthName) ? monthName : 'August 2026';
   });
+
+  const [dailyHabitStates, setDailyHabitStates] = useState(() => {
+    if (savedDb && savedDb.dailyHabitStates) return savedDb.dailyHabitStates;
+    return {
+      '2026-08-03': { studyDone: true, submitDone: false },
+      '2026-08-04': { studyDone: true, submitDone: false },
+      '2026-08-05': { studyDone: true, submitDone: false },
+      '2026-08-06': { studyDone: false, submitDone: false },
+      '2026-08-07': { studyDone: true, submitDone: false }
+    };
+  });
+
 
   const [currentUserId, setCurrentUserId] = useState(() => {
     return localStorage.getItem('ph_active_user_id') || 'user-barath';
@@ -310,18 +330,30 @@ const CLOUD_SYNC_ENDPOINT = 'https://jsonblob.com/api/jsonBlob/019fd29a-5c27-7bf
     }));
   };
 
-  const toggleDailyHabit = (monthName, dayLabel, field) => {
-    setMonthlyHabits(prev => {
-      const monthDays = prev[monthName] || [];
-      const updatedDays = monthDays.map(item => {
-        if (item.day === dayLabel) {
-          return { ...item, [field]: !item[field] };
+  const toggleDailyHabit = (dateStr, field) => {
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const todayStr = `${yyyy}-${mm}-${dd}`;
+
+    // Only allow writes to today's date entry
+    if (dateStr !== todayStr) {
+      return;
+    }
+
+    setDailyHabitStates(prev => {
+      const currentDay = prev[dateStr] || { studyDone: false, submitDone: false };
+      return {
+        ...prev,
+        [dateStr]: {
+          ...currentDay,
+          [field]: !currentDay[field]
         }
-        return item;
-      });
-      return { ...prev, [monthName]: updatedDays };
+      };
     });
   };
+
 
   const updateGoogleSuiteConfig = ({ topic, timing, meetUrl, driveUrl, classroomUrl }) => {
     if (topic !== undefined || timing !== undefined || meetUrl !== undefined) {
@@ -514,9 +546,10 @@ const CLOUD_SYNC_ENDPOINT = 'https://jsonblob.com/api/jsonBlob/019fd29a-5c27-7bf
       auditLogs,
       domainRoadmaps: DOMAIN_ROADMAPS,
       scheduleMonths: SCHEDULE_MONTHS,
-      monthlyHabits,
+      dailyHabitStates,
       selectedScheduleMonth,
       setSelectedScheduleMonth,
+
       aiTeamAvatars: AI_TEAM_AVATARS,
       emojiCombos: EMOJI_COMBOS,
       googleMeetConfig,

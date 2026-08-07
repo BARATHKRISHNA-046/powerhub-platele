@@ -22,13 +22,16 @@ import {
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
 
+import { generateCalendarDays, SCHEDULE_MONTHS } from '../data/mockData';
+
 export default function StudentDashboard() {
   const { 
     currentUser, users, teams, submissions, skillRatings, announcements, 
     googleMeetConfig, googleDriveUrl, googleClassroomUrl, scheduleMonths, 
-    monthlyHabits, selectedScheduleMonth, setSelectedScheduleMonth, 
+    dailyHabitStates, selectedScheduleMonth, setSelectedScheduleMonth, 
     domainRoadmaps, toggleDailyHabit, calculateStudentScore, submitWork 
   } = useApp();
+
 
   const [githubUrl, setGithubUrl] = useState('');
   const [imageAttachment, setImageAttachment] = useState('');
@@ -39,11 +42,27 @@ export default function StudentDashboard() {
   const [submitSuccess, setSubmitSuccess] = useState('');
   const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'roadmap' | 'resume'
 
+  const allCalendarDays = React.useMemo(() => generateCalendarDays(), []);
+
+  const getTodayStr = () => {
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  };
+  const todayStr = getTodayStr();
+
+  const activeMonthDays = React.useMemo(() => {
+    return allCalendarDays.filter(d => d.monthName === selectedScheduleMonth);
+  }, [allCalendarDays, selectedScheduleMonth]);
+
   useEffect(() => {
     if (window.location.hash === '#resume') {
       setActiveTab('resume');
     }
   }, []);
+
 
   // Live Countdown Timer for Night 11:00 PM Deadline Cutoff
   const [timeLeft, setTimeLeft] = useState({ hours: 3, minutes: 24, seconds: 50 });
@@ -283,56 +302,131 @@ export default function StudentDashboard() {
               <span className="tag-pill pill-green">MongoDB</span>
             </div>
 
-            {/* DAILY CARDS GRID */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.75rem', marginBottom: '1.25rem' }}>
-              {activeMonthHabits.map((item) => {
-                let cardBg = '#f8fafc';
-                let cardBorder = '#e2e8f0';
+            {/* DAILY CARDS HORIZONTALLY SCROLLABLE ROW */}
+            <div 
+              style={{ 
+                display: 'flex', 
+                gap: '0.85rem', 
+                overflowX: 'auto', 
+                paddingBottom: '0.85rem', 
+                paddingTop: '0.25rem',
+                marginBottom: '1.25rem',
+                scrollSnapType: 'x mandatory',
+                WebkitOverflowScrolling: 'touch'
+              }}
+            >
+              {activeMonthDays.map((item) => {
+                const dateStr = item.dateStr;
+                const dayState = dailyHabitStates[dateStr] || { studyDone: false, submitDone: false };
+                const studyDone = Boolean(dayState.studyDone);
+                const submitDone = Boolean(dayState.submitDone);
+
+                const isPast = dateStr < todayStr;
+                const isActive = dateStr === todayStr;
+                const isFuture = dateStr > todayStr;
+
                 let badgeBg = '#64748b';
                 let badgeText = '#ffffff';
                 let badgeLabel = 'Past (Locked)';
 
-                if (item.studyDone && item.submitDone) {
-                  cardBg = '#f0fdf4';
-                  cardBorder = '#86efac';
-                  badgeBg = '#059669';
-                  badgeText = '#ffffff';
-                  badgeLabel = 'Completed ✔';
-                } else if (item.isActive) {
-                  cardBg = '#fffbeb';
-                  cardBorder = '#fde68a';
-                  badgeBg = '#d97706';
-                  badgeText = '#ffffff';
-                  badgeLabel = '★ TODAY ACTIVE';
-                } else if (!item.isPast) {
-                  cardBg = '#f0f9ff';
-                  cardBorder = '#bae6fd';
-                  badgeBg = '#0284c7';
-                  badgeText = '#ffffff';
-                  badgeLabel = 'Scheduled';
-                } else {
-                  cardBg = '#f8fafc';
-                  cardBorder = '#cbd5e1';
+                if (isPast) {
                   badgeBg = '#64748b';
                   badgeText = '#ffffff';
                   badgeLabel = 'Past (Locked)';
+                } else if (isActive) {
+                  if (studyDone && submitDone) {
+                    badgeBg = '#059669';
+                    badgeText = '#ffffff';
+                    badgeLabel = 'Completed ✓';
+                  } else {
+                    badgeBg = '#d97706';
+                    badgeText = '#ffffff';
+                    badgeLabel = '★ TODAY ACTIVE';
+                  }
+                } else {
+                  badgeBg = '#0284c7';
+                  badgeText = '#ffffff';
+                  badgeLabel = 'Scheduled';
                 }
 
                 return (
-                  <div key={item.day} style={{ background: cardBg, border: `1.5px solid ${cardBorder}`, borderRadius: '14px', padding: '0.85rem 0.75rem', display: 'flex', flexDirection: 'column', gap: '0.65rem', boxShadow: item.isActive ? '0 4px 12px rgba(217, 119, 6, 0.15)' : 'none' }}>
+                  <div 
+                    key={dateStr} 
+                    style={{ 
+                      minWidth: '155px', 
+                      width: '155px', 
+                      flexShrink: 0, 
+                      scrollSnapAlign: 'start',
+                      background: item.pastel.bg, 
+                      border: isActive ? '2px solid #f59e0b' : `1.5px solid ${item.pastel.border}`, 
+                      borderRadius: '14px', 
+                      padding: '0.85rem 0.75rem', 
+                      display: 'flex', 
+                      flexDirection: 'column', 
+                      gap: '0.65rem', 
+                      boxShadow: isActive ? '0 4px 16px rgba(245, 158, 11, 0.3)' : 'none',
+                      position: 'relative'
+                    }}
+                  >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span style={{ fontWeight: '800', fontSize: '0.92rem', color: '#0f172a', fontFamily: 'var(--font-heading)' }}>{item.day}</span>
-                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '600' }}>{item.dateLabel}</span>
+                      <span style={{ fontWeight: '800', fontSize: '0.92rem', color: item.pastel.text, fontFamily: 'var(--font-heading)' }}>{item.day}</span>
+                      <span style={{ fontSize: '0.72rem', color: item.pastel.text, fontWeight: '700', opacity: 0.85 }}>{item.dateLabel}</span>
                     </div>
 
-                    <label style={{ background: item.studyDone ? '#059669' : '#ffffff', color: item.studyDone ? '#ffffff' : '#0f172a', border: '1px solid ' + (item.studyDone ? '#059669' : 'var(--border-medium)'), padding: '0.35rem 0.5rem', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: item.isActive ? 'pointer' : 'default' }} onClick={() => item.isActive && toggleDailyHabit(selectedScheduleMonth, item.day, 'studyDone')}>
+                    {/* 7 PM Study Checkbox */}
+                    <label 
+                      style={{ 
+                        background: studyDone ? '#059669' : '#ffffff', 
+                        color: studyDone ? '#ffffff' : '#0f172a', 
+                        border: '1px solid ' + (studyDone ? '#059669' : item.pastel.border), 
+                        padding: '0.35rem 0.5rem', 
+                        borderRadius: 'var(--radius-sm)', 
+                        fontSize: '0.75rem', 
+                        fontWeight: '700', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'space-between', 
+                        cursor: isActive ? 'pointer' : 'not-allowed',
+                        opacity: isActive ? 1 : 0.85 
+                      }} 
+                      onClick={() => isActive && toggleDailyHabit(dateStr, 'studyDone')}
+                    >
                       <span>📖 7 PM Study</span>
-                      <input type="checkbox" checked={item.studyDone} readOnly style={{ accentColor: '#059669' }} />
+                      <input 
+                        type="checkbox" 
+                        checked={studyDone} 
+                        disabled={!isActive}
+                        readOnly 
+                        style={{ accentColor: '#059669', cursor: isActive ? 'pointer' : 'not-allowed' }} 
+                      />
                     </label>
 
-                    <label style={{ background: item.submitDone ? '#059669' : '#ffffff', color: item.submitDone ? '#ffffff' : '#0f172a', border: '1px solid ' + (item.submitDone ? '#059669' : 'var(--border-medium)'), padding: '0.35rem 0.5rem', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: item.isActive ? 'pointer' : 'default' }} onClick={() => item.isActive && toggleDailyHabit(selectedScheduleMonth, item.day, 'submitDone')}>
+                    {/* 11:00 PM Submission Checkbox */}
+                    <label 
+                      style={{ 
+                        background: submitDone ? '#059669' : '#ffffff', 
+                        color: submitDone ? '#ffffff' : '#0f172a', 
+                        border: '1px solid ' + (submitDone ? '#059669' : item.pastel.border), 
+                        padding: '0.35rem 0.5rem', 
+                        borderRadius: 'var(--radius-sm)', 
+                        fontSize: '0.75rem', 
+                        fontWeight: '700', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'space-between', 
+                        cursor: isActive ? 'pointer' : 'not-allowed',
+                        opacity: isActive ? 1 : 0.85 
+                      }} 
+                      onClick={() => isActive && toggleDailyHabit(dateStr, 'submitDone')}
+                    >
                       <span>📤 11:00 PM Subm...</span>
-                      <input type="checkbox" checked={item.submitDone} readOnly style={{ accentColor: '#059669' }} />
+                      <input 
+                        type="checkbox" 
+                        checked={submitDone} 
+                        disabled={!isActive}
+                        readOnly 
+                        style={{ accentColor: '#059669', cursor: isActive ? 'pointer' : 'not-allowed' }} 
+                      />
                     </label>
 
                     <div style={{ textAlign: 'center', marginTop: '0.2rem' }}>
@@ -344,6 +438,7 @@ export default function StudentDashboard() {
                 );
               })}
             </div>
+
 
             {/* BOTTOM METADATA & FOOTER ROW MATCHING PICTURE 2 */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '1rem', borderTop: '1px solid #f1f5f9', flexWrap: 'wrap', gap: '1rem', fontSize: '0.82rem', fontWeight: '700', color: '#64748b' }}>

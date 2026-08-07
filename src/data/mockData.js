@@ -202,17 +202,76 @@ export const SCHEDULE_MONTHS = [
   'March 2027'
 ];
 
-export const MONTHLY_DAILY_SCHEDULES = {
-  'August 2026': [
-    { day: 'Mon', dateLabel: 'Aug 3', isPast: true, isActive: false, studyDone: true, submitDone: false },
-    { day: 'Tue', dateLabel: 'Aug 4', isPast: true, isActive: false, studyDone: true, submitDone: false },
-    { day: 'Wed', dateLabel: 'Aug 5', isPast: false, isActive: true, studyDone: true, submitDone: false },
-    { day: 'Thu', dateLabel: 'Aug 6', isPast: false, isActive: false, studyDone: false, submitDone: false },
-    { day: 'Fri', dateLabel: 'Aug 7', isPast: false, isActive: false, studyDone: false, submitDone: false },
-    { day: 'Sat', dateLabel: 'Aug 8', isPast: false, isActive: false, studyDone: false, submitDone: false },
-    { day: 'Sun', dateLabel: 'Aug 9', isPast: false, isActive: false, studyDone: false, submitDone: false }
-  ]
+export const PASTEL_PALETTE = [
+  { bg: '#fbe9d1', border: '#fed7aa', text: '#9a4216' }, // Peach
+  { bg: '#cae6fe', border: '#bfdbfe', text: '#1e40af' }, // Blue
+  { bg: '#fffcd1', border: '#fef08a', text: '#854d0e' }, // Yellow
+  { bg: '#c9f6fc', border: '#a5f3fc', text: '#0e7490' }, // Cyan
+  { bg: '#c8d6fd', border: '#c7d2fe', text: '#3730a3' }, // Periwinkle
+  { bg: '#cbf5c7', border: '#bbf7d0', text: '#166534' }, // Light Green
+  { bg: '#fbcfe8', border: '#f9a8d4', text: '#9d174d' }, // Pink
+  { bg: '#a7f3d0', border: '#6ee7b7', text: '#065f46' }  // Mint
+];
+
+export const getPastelColorForDate = (dateStr) => {
+  let hash = 0;
+  for (let i = 0; i < dateStr.length; i++) {
+    hash = dateStr.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % PASTEL_PALETTE.length;
+  return PASTEL_PALETTE[index];
 };
+
+export const generateCalendarDays = () => {
+  const days = [];
+  // Loop through Aug 1, 2026 to Mar 31, 2027 (8 months)
+  const start = new Date(2026, 7, 1); // 7 = August (0-indexed)
+  const end = new Date(2027, 2, 31);   // 2 = March
+
+  const curr = new Date(start);
+  while (curr <= end) {
+    const yyyy = curr.getFullYear();
+    const mm = String(curr.getMonth() + 1).padStart(2, '0');
+    const dd = String(curr.getDate()).padStart(2, '0');
+    const dateStr = `${yyyy}-${mm}-${dd}`;
+
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    const monthName = `${monthNames[curr.getMonth()]} ${yyyy}`;
+
+    const dayShorts = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const dayShort = dayShorts[curr.getDay()];
+
+    const monthShorts = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const dateLabel = `${monthShorts[curr.getMonth()]} ${curr.getDate()}`;
+
+    const pastel = getPastelColorForDate(dateStr);
+
+    days.push({
+      dateStr,
+      monthName,
+      day: dayShort,
+      dateLabel,
+      pastel
+    });
+
+    curr.setDate(curr.getDate() + 1);
+  }
+  return days;
+};
+
+export const INITIAL_DAILY_HABIT_STATES = {
+  '2026-08-03': { studyDone: true, submitDone: false },
+  '2026-08-04': { studyDone: true, submitDone: false },
+  '2026-08-05': { studyDone: true, submitDone: false },
+  '2026-08-06': { studyDone: false, submitDone: false },
+  '2026-08-07': { studyDone: true, submitDone: false }
+};
+
+export const MONTHLY_DAILY_SCHEDULES = generateCalendarDays();
+
 
 export const INITIAL_SUBMISSIONS = [];
 
