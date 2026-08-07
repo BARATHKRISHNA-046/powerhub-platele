@@ -220,48 +220,72 @@ export default function StudentDashboard() {
 
 
         <>
-          {/* ROW 1: DAILY HABIT & SUBMISSION CALENDAR */}
-          <div className="card" style={{ borderColor: '#3b82f6', borderWidth: '1.5px', background: '#ffffff', borderRadius: 'var(--radius-lg)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Calendar size={22} style={{ color: '#2563eb' }} />
-                  <h2 style={{ fontSize: '1.35rem', fontWeight: '800', fontFamily: 'var(--font-heading)' }}>
+          {/* ROW 1: DAILY HABIT & SUBMISSION CALENDAR MATCHING PICTURE 2 LAYOUT & THEME */}
+          <div className="card" style={{ borderColor: '#bfdbfe', borderWidth: '1.5px', background: '#ffffff', borderRadius: '20px', boxShadow: '0 10px 28px rgba(37,99,235,0.06)', padding: '1.75rem' }}>
+            {/* TOP HEADER MATCHING PICTURE 2 */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <div style={{ 
+                  width: '52px', 
+                  height: '52px', 
+                  borderRadius: '14px', 
+                  background: 'linear-gradient(135deg, #eff6ff, #dbeafe)', 
+                  border: '1px solid #bfdbfe',
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  color: '#2563eb',
+                  boxShadow: '0 4px 10px rgba(37,99,235,0.1)'
+                }}>
+                  <Calendar size={28} />
+                </div>
+                <div>
+                  <h2 style={{ fontSize: '1.4rem', fontWeight: '800', fontFamily: 'var(--font-heading)', color: '#0f172a' }}>
                     Daily Habit & Submission Calendar (Aug 2026 – Mar 2027)
                   </h2>
+                  <p style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '0.15rem' }}>
+                    Shuffled pastel daily cards across full 8-month schedule. Only active current day boxes are tickable.
+                  </p>
                 </div>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
-                  Shuffled pastel daily cards across full 8-month schedule. Only active current day boxes are tickable.
-                </p>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <select
-                  value={selectedScheduleMonth}
-                  onChange={e => setSelectedScheduleMonth(e.target.value)}
-                  style={{
-                    background: '#eff6ff',
-                    border: '1.5px solid #bfdbfe',
-                    color: '#1d4ed8',
-                    padding: '0.4rem 0.85rem',
-                    borderRadius: '9999px',
-                    fontSize: '0.82rem',
-                    fontWeight: '800',
-                    outline: 'none',
-                    cursor: 'pointer'
-                  }}
-                >
-                  {scheduleMonths.map(m => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                </select>
-
-              </div>
+              <select
+                value={selectedScheduleMonth}
+                onChange={e => setSelectedScheduleMonth(e.target.value)}
+                style={{
+                  background: '#ffffff',
+                  border: '1.5px solid #bfdbfe',
+                  color: '#1d4ed8',
+                  padding: '0.5rem 1.1rem',
+                  borderRadius: '12px',
+                  fontSize: '0.85rem',
+                  fontWeight: '800',
+                  outline: 'none',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 6px rgba(37,99,235,0.08)'
+                }}
+              >
+                {scheduleMonths.map(m => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.75rem' }}>
-              {activeMonthHabits.map((item) => {
+            {/* PASTEL SKILL PILL TAGS ROW MATCHING PICTURE 2 */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1.25rem', paddingBottom: '1rem', borderBottom: '1px solid #f1f5f9' }}>
+              <span className="tag-pill pill-peach">HTML5</span>
+              <span className="tag-pill pill-blue">CSS3</span>
+              <span className="tag-pill pill-yellow">JavaScript</span>
+              <span className="tag-pill pill-cyan">TailwindCSS</span>
+              <span className="tag-pill pill-periwinkle">ReactJS</span>
+              <span className="tag-pill pill-lightgreen">NodeJS</span>
+              <span className="tag-pill pill-periwinkle">ExpressJS</span>
+              <span className="tag-pill pill-green">MongoDB</span>
+            </div>
 
+            {/* DAILY CARDS GRID */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.75rem', marginBottom: '1.25rem' }}>
+              {activeMonthHabits.map((item) => {
                 let cardBg = '#f8fafc';
                 let cardBorder = '#e2e8f0';
                 let badgeBg = '#64748b';
@@ -269,28 +293,24 @@ export default function StudentDashboard() {
                 let badgeLabel = 'Past (Locked)';
 
                 if (item.studyDone && item.submitDone) {
-                  // Completed / Done -> Green
                   cardBg = '#f0fdf4';
                   cardBorder = '#86efac';
                   badgeBg = '#059669';
                   badgeText = '#ffffff';
                   badgeLabel = 'Completed ✔';
                 } else if (item.isActive) {
-                  // Today Active -> Amber / Gold
                   cardBg = '#fffbeb';
                   cardBorder = '#fde68a';
                   badgeBg = '#d97706';
                   badgeText = '#ffffff';
                   badgeLabel = '★ TODAY ACTIVE';
                 } else if (!item.isPast) {
-                  // Scheduled / Upcoming -> Blue
                   cardBg = '#f0f9ff';
                   cardBorder = '#bae6fd';
                   badgeBg = '#0284c7';
                   badgeText = '#ffffff';
                   badgeLabel = 'Scheduled';
                 } else {
-                  // Locked / Past -> Gray
                   cardBg = '#f8fafc';
                   cardBorder = '#cbd5e1';
                   badgeBg = '#64748b';
@@ -299,7 +319,7 @@ export default function StudentDashboard() {
                 }
 
                 return (
-                  <div key={item.day} style={{ background: cardBg, border: `1.5px solid ${cardBorder}`, borderRadius: 'var(--radius-md)', padding: '0.85rem 0.75rem', display: 'flex', flexDirection: 'column', gap: '0.65rem', boxShadow: item.isActive ? '0 4px 12px rgba(217, 119, 6, 0.15)' : 'none' }}>
+                  <div key={item.day} style={{ background: cardBg, border: `1.5px solid ${cardBorder}`, borderRadius: '14px', padding: '0.85rem 0.75rem', display: 'flex', flexDirection: 'column', gap: '0.65rem', boxShadow: item.isActive ? '0 4px 12px rgba(217, 119, 6, 0.15)' : 'none' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <span style={{ fontWeight: '800', fontSize: '0.92rem', color: '#0f172a', fontFamily: 'var(--font-heading)' }}>{item.day}</span>
                       <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '600' }}>{item.dateLabel}</span>
@@ -324,81 +344,153 @@ export default function StudentDashboard() {
                 );
               })}
             </div>
+
+            {/* BOTTOM METADATA & FOOTER ROW MATCHING PICTURE 2 */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '1rem', borderTop: '1px solid #f1f5f9', flexWrap: 'wrap', gap: '1rem', fontSize: '0.82rem', fontWeight: '700', color: '#64748b' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flexWrap: 'wrap' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}><span style={{ color: '#2563eb' }}>((•))</span> Online Track</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>⏰ Daily 11:00 PM Cutoff</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>💼 Placement Assistance</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>👨‍🏫 Live Mentor Support</span>
+              </div>
+              <span style={{ background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1d4ed8', padding: '0.35rem 0.85rem', borderRadius: '9999px', fontSize: '0.8rem', fontWeight: '800' }}>
+                Active Schedule Track
+              </span>
+            </div>
           </div>
 
 
-          {/* ROW 2: 3-COLUMN MIDDLE GRID */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.25rem' }}>
-            <div className="card" style={{ borderColor: '#10b981', borderWidth: '1.5px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.4rem' }}>
-                <div style={{ width: '28px', height: '28px', background: '#e6f4ea', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0f9d58' }}>
-                  <Video size={18} />
-                </div>
-                <div>
-                  <h3 style={{ fontSize: '1.1rem', fontWeight: '800' }}>Live Google Meet</h3>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Official mentor video conference & code walk-throughs</p>
-                </div>
-              </div>
-
-              <div style={{ background: '#e6f4ea', border: '1px solid #a8dab5', borderRadius: 'var(--radius-md)', padding: '1rem', margin: '1rem 0' }}>
-                <div style={{ fontSize: '0.78rem', fontWeight: '800', color: '#0f9d58', textTransform: 'uppercase', marginBottom: '0.25rem' }}>TOPIC:</div>
-                <h4 style={{ fontSize: '0.98rem', fontWeight: '800', color: '#0f172a', marginBottom: '0.5rem' }}>{googleMeetConfig.topic}</h4>
-                <div style={{ fontSize: '0.82rem', fontWeight: '700', color: '#166534' }}>🕒 Timing: {googleMeetConfig.timing}</div>
-              </div>
-
-              <a href={googleMeetConfig.meetUrl} target="_blank" rel="noreferrer" className="btn-primary" style={{ width: '100%', backgroundColor: '#059669', textDecoration: 'none', justifyContent: 'center' }}>
-                <Video size={18} /> Join Google Meet Now <ExternalLink size={14} />
-              </a>
-            </div>
-
-            <div className="card" style={{ borderColor: '#f43f5e', borderWidth: '1.5px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.4rem' }}>
-                <MessageSquare size={20} style={{ color: '#f43f5e' }} />
-                <div>
-                  <h3 style={{ fontSize: '1.1rem', fontWeight: '800' }}>Mentor Announcements</h3>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Official updates & submission guidelines</p>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '220px', overflowY: 'auto', marginTop: '0.75rem' }}>
-                {announcements.map((ann) => (
-                  <div key={ann.id} style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 'var(--radius-sm)', padding: '0.75rem' }}>
-                    <span style={{ fontSize: '0.88rem', fontWeight: '800', color: '#0f172a' }}>📌 {ann.title}</span>
-                    <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>{ann.message}</p>
+          {/* ROW 2: 3-COLUMN MIDDLE GRID MATCHING PICTURE 2 THEME & LAYOUT */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '1.25rem' }}>
+            
+            {/* CARD 1: LIVE GOOGLE MEET */}
+            <div className="card" style={{ borderColor: '#bbf7d0', borderWidth: '1.5px', background: '#ffffff', borderRadius: '20px', boxShadow: '0 10px 28px rgba(16,185,129,0.06)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '1.5rem' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', marginBottom: '0.75rem' }}>
+                  <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: '#dcfce7', border: '1px solid #bbf7d0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#059669' }}>
+                    <Video size={24} />
                   </div>
-                ))}
-              </div>
-            </div>
+                  <div>
+                    <h3 style={{ fontSize: '1.2rem', fontWeight: '800', fontFamily: 'var(--font-heading)', color: '#0f172a' }}>Live Google Meet</h3>
+                    <p style={{ fontSize: '0.82rem', color: '#64748b' }}>Official mentor video conference & code reviews</p>
+                  </div>
+                </div>
 
-            <div className="card" style={{ borderColor: '#f97316', borderWidth: '1.5px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.4rem' }}>
-                <Users size={20} style={{ color: '#f97316' }} />
-                <div>
-                  <h3 style={{ fontSize: '1.1rem', fontWeight: '800' }}>My Assigned Team</h3>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '1rem' }}>
+                  <span className="tag-pill pill-lightgreen">WebRTC</span>
+                  <span className="tag-pill pill-blue">Live Review</span>
+                  <span className="tag-pill pill-yellow">Q&A</span>
+                  <span className="tag-pill pill-peach">8:00 PM IST</span>
+                </div>
+
+                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '14px', padding: '1rem', marginBottom: '1rem' }}>
+                  <div style={{ fontSize: '0.75rem', fontWeight: '800', color: '#059669', textTransform: 'uppercase', marginBottom: '0.25rem' }}>TOPIC:</div>
+                  <h4 style={{ fontSize: '1rem', fontWeight: '800', color: '#0f172a', marginBottom: '0.4rem' }}>{googleMeetConfig.topic}</h4>
+                  <div style={{ fontSize: '0.82rem', fontWeight: '700', color: '#166534' }}>🕒 Timing: {googleMeetConfig.timing}</div>
                 </div>
               </div>
 
-              {myTeam ? (
-                <div style={{ background: '#fff7ed', border: '1px solid #ffedd5', borderRadius: 'var(--radius-md)', padding: '1rem', marginTop: '0.75rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', marginBottom: '0.65rem' }}>
-                    <img src={myTeam.teamAvatarUrl} alt={myTeam.name} style={{ width: '56px', height: '56px', borderRadius: '12px', objectFit: 'cover', border: '2px solid #f97316' }} />
-                    <div>
-                      <h4 style={{ fontSize: '1.1rem', fontWeight: '800', color: '#0f172a' }}>{myTeam.name}</h4>
-                      <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Project: {myTeam.projectName}</span>
+              <div style={{ paddingTop: '1rem', borderTop: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
+                <div style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: '700' }}>
+                  <span style={{ color: '#059669' }}>((•))</span> Live Session
+                </div>
+                <a href={googleMeetConfig.meetUrl} target="_blank" rel="noreferrer" className="btn-primary" style={{ backgroundColor: '#059669', borderRadius: '12px', padding: '0.6rem 1.1rem', fontSize: '0.85rem', textDecoration: 'none' }}>
+                  Join Google Meet Now <ExternalLink size={14} />
+                </a>
+              </div>
+            </div>
+
+            {/* CARD 2: MENTOR ANNOUNCEMENTS */}
+            <div className="card" style={{ borderColor: '#fecdd3', borderWidth: '1.5px', background: '#ffffff', borderRadius: '20px', boxShadow: '0 10px 28px rgba(244,63,94,0.06)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '1.5rem' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', marginBottom: '0.75rem' }}>
+                  <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: '#ffe4e6', border: '1px solid #fecdd3', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#e11d48' }}>
+                    <MessageSquare size={24} />
+                  </div>
+                  <div>
+                    <h3 style={{ fontSize: '1.2rem', fontWeight: '800', fontFamily: 'var(--font-heading)', color: '#0f172a' }}>Mentor Announcements</h3>
+                    <p style={{ fontSize: '0.82rem', color: '#64748b' }}>Official updates & submission guidelines</p>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '1rem' }}>
+                  <span className="tag-pill pill-peach">Cohort Updates</span>
+                  <span className="tag-pill pill-periwinkle">Guidelines</span>
+                  <span className="tag-pill pill-cyan">Broadcast</span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '180px', overflowY: 'auto', marginBottom: '1rem' }}>
+                  {announcements.map((ann) => (
+                    <div key={ann.id} style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '12px', padding: '0.75rem' }}>
+                      <span style={{ fontSize: '0.88rem', fontWeight: '800', color: '#0f172a' }}>📌 {ann.title}</span>
+                      <p style={{ fontSize: '0.78rem', color: '#64748b', lineHeight: '1.4', marginTop: '0.2rem' }}>{ann.message}</p>
                     </div>
-                  </div>
-                  <a href={myTeam.githubUrl} target="_blank" rel="noreferrer" style={{ fontSize: '0.8rem', color: 'var(--primary-blue)', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontWeight: '600' }}>
-                    <Github size={13} /> {myTeam.githubUrl}
-                  </a>
+                  ))}
                 </div>
-              ) : (
-                <div style={{ border: '2px dashed var(--border-medium)', borderRadius: 'var(--radius-md)', padding: '2rem 1rem', textAlign: 'center', marginTop: '0.75rem' }}>
-                  <Users size={32} style={{ margin: '0 auto 0.5rem', color: 'var(--text-light)' }} />
-                  <h4 style={{ fontSize: '0.92rem', fontWeight: '800', color: '#0f172a' }}>No Team Assigned Yet</h4>
+              </div>
+
+              <div style={{ paddingTop: '1rem', borderTop: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
+                <div style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: '700' }}>
+                  <span style={{ color: '#e11d48' }}>((•))</span> Live Notices ({announcements.length})
                 </div>
-              )}
+                <button className="btn-secondary" style={{ backgroundColor: '#e11d48', borderRadius: '12px', padding: '0.6rem 1.1rem', fontSize: '0.85rem' }}>
+                  Pinned Notices
+                </button>
+              </div>
             </div>
+
+            {/* CARD 3: MY ASSIGNED TEAM */}
+            <div className="card" style={{ borderColor: '#fed7aa', borderWidth: '1.5px', background: '#ffffff', borderRadius: '20px', boxShadow: '0 10px 28px rgba(249,115,22,0.06)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '1.5rem' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', marginBottom: '0.75rem' }}>
+                  <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: '#ffedd5', border: '1px solid #fed7aa', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ea580c' }}>
+                    <Users size={24} />
+                  </div>
+                  <div>
+                    <h3 style={{ fontSize: '1.2rem', fontWeight: '800', fontFamily: 'var(--font-heading)', color: '#0f172a' }}>My Assigned Team</h3>
+                    <p style={{ fontSize: '0.82rem', color: '#64748b' }}>Shared team project & repository</p>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '1rem' }}>
+                  <span className="tag-pill pill-yellow">Team Collaboration</span>
+                  <span className="tag-pill pill-blue">GitHub Sync</span>
+                  <span className="tag-pill pill-lightgreen">Lead (+15 pts)</span>
+                </div>
+
+                {myTeam ? (
+                  <div style={{ background: '#fff7ed', border: '1px solid #ffedd5', borderRadius: '14px', padding: '1rem', marginBottom: '1rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', marginBottom: '0.65rem' }}>
+                      <img src={myTeam.teamAvatarUrl} alt={myTeam.name} style={{ width: '48px', height: '48px', borderRadius: '12px', objectFit: 'cover', border: '2px solid #ea580c' }} />
+                      <div>
+                        <h4 style={{ fontSize: '1.1rem', fontWeight: '800', color: '#0f172a' }}>{myTeam.name}</h4>
+                        <span style={{ fontSize: '0.78rem', color: '#64748b' }}>Project: {myTeam.projectName}</span>
+                      </div>
+                    </div>
+                    <a href={myTeam.githubUrl} target="_blank" rel="noreferrer" style={{ fontSize: '0.8rem', color: '#ea580c', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontWeight: '700' }}>
+                      <Github size={13} /> {myTeam.githubUrl}
+                    </a>
+                  </div>
+                ) : (
+                  <div style={{ border: '2px dashed #fed7aa', borderRadius: '14px', padding: '1.5rem 1rem', textAlign: 'center', marginBottom: '1rem', background: '#fff7ed' }}>
+                    <Users size={28} style={{ margin: '0 auto 0.4rem', color: '#ea580c' }} />
+                    <h4 style={{ fontSize: '0.92rem', fontWeight: '800', color: '#0f172a' }}>No Team Assigned Yet</h4>
+                  </div>
+                )}
+              </div>
+
+              <div style={{ paddingTop: '1rem', borderTop: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
+                <div style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: '700' }}>
+                  <span style={{ color: '#ea580c' }}>((•))</span> Team Active
+                </div>
+                <a href={myTeam?.githubUrl || 'https://github.com'} target="_blank" rel="noreferrer" className="btn-primary" style={{ backgroundColor: '#ea580c', borderRadius: '12px', padding: '0.6rem 1.1rem', fontSize: '0.85rem', textDecoration: 'none' }}>
+                  Open Repo ↗
+                </a>
+              </div>
+            </div>
+
           </div>
+
 
           {/* ROW 3: LEADERBOARD */}
           <div className="card" style={{ borderColor: '#10b981', borderWidth: '1.5px' }}>
