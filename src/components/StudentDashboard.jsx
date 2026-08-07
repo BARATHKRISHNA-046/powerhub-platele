@@ -7,7 +7,9 @@ import {
 } from 'lucide-react';
 import ResumeBuilder from './ResumeBuilder';
 import DomainBootcampRoadmap from './DomainBootcampRoadmap';
+import SectionErrorBoundary from './SectionErrorBoundary';
 import { uploadSubmissionMedia } from '../lib/uploadSubmission';
+
 
 import { Radar } from 'react-chartjs-2';
 import {
@@ -315,62 +317,66 @@ export default function StudentDashboard() {
 
 
         <>
-          {/* STREAK & MILESTONE BADGES CARD */}
-          <div className="card" style={{ background: 'linear-gradient(135deg, #fff7ed, #ffedd5)', border: '1.5px solid #fed7aa', borderRadius: '20px', padding: '1.5rem', marginBottom: '1.5rem', boxShadow: '0 8px 24px rgba(234,88,12,0.08)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-                <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: '#ea580c', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(234,88,12,0.3)' }}>
-                  <Flame size={28} />
+          {/* STREAK CARD */}
+          <SectionErrorBoundary name="Streak Badges">
+            <div className="card" style={{ background: 'linear-gradient(135deg, #fff7ed, #ffedd5)', border: '1.5px solid #fed7aa', borderRadius: '20px', padding: '1.5rem', marginBottom: '1.5rem', boxShadow: '0 8px 24px rgba(234,88,12,0.08)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                  <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: '#ea580c', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(234,88,12,0.3)' }}>
+                    <Flame size={28} />
+                  </div>
+                  <div>
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: '800', fontFamily: 'var(--font-heading)', color: '#9a3412' }}>
+                      Active Habit Streak: <span style={{ color: '#ea580c' }}>🔥 {myStreak} Days</span>
+                    </h3>
+                    <p style={{ fontSize: '0.82rem', color: '#c2410c' }}>
+                      Consecutive uninterrupted days with 7 PM Study & 11 PM Submission completed. (Resets to 0 on Missed day)
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 style={{ fontSize: '1.25rem', fontWeight: '800', fontFamily: 'var(--font-heading)', color: '#9a3412' }}>
-                    Active Habit Streak: <span style={{ color: '#ea580c' }}>🔥 {myStreak} Days</span>
-                  </h3>
-                  <p style={{ fontSize: '0.82rem', color: '#c2410c' }}>
-                    Consecutive uninterrupted days with 7 PM Study & 11 PM Submission completed. (Resets to 0 on Missed day)
-                  </p>
-                </div>
+
+                <span style={{ background: '#ea580c', color: '#ffffff', padding: '0.45rem 1rem', borderRadius: '9999px', fontSize: '0.85rem', fontWeight: '800', boxShadow: '0 4px 12px rgba(234,88,12,0.25)' }}>
+                  🔥 {myStreak} Day Streak
+                </span>
               </div>
 
-              <span style={{ background: '#ea580c', color: '#ffffff', padding: '0.45rem 1rem', borderRadius: '9999px', fontSize: '0.85rem', fontWeight: '800', boxShadow: '0 4px 12px rgba(234,88,12,0.25)' }}>
-                🔥 {myStreak} Day Streak
-              </span>
-            </div>
-
-            {/* UNLOCKED MILESTONE BADGES GRID */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.85rem' }}>
-              {(milestoneBadges || []).map(badge => {
-                const isUnlocked = myStreak >= badge.reqStreak;
-                return (
-                  <div 
-                    key={badge.id}
-                    style={{
-                      background: isUnlocked ? badge.bg : '#ffffff',
-                      border: isUnlocked ? `1.5px solid ${badge.text}` : '1px dashed #cbd5e1',
-                      borderRadius: '12px',
-                      padding: '0.75rem 0.85rem',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.65rem',
-                      opacity: isUnlocked ? 1 : 0.6,
-                      filter: isUnlocked ? 'none' : 'grayscale(80%)'
-                    }}
-                  >
-                    <span style={{ fontSize: '1.5rem' }}>{badge.icon}</span>
-                    <div>
-                      <div style={{ fontSize: '0.85rem', fontWeight: '800', color: isUnlocked ? badge.text : '#64748b' }}>{badge.title}</div>
-                      <div style={{ fontSize: '0.7rem', color: isUnlocked ? badge.text : '#94a3b8' }}>
-                        {isUnlocked ? 'Unlocked 🏆' : `Requires ${badge.reqStreak}-day streak`}
+              {/* UNLOCKED MILESTONE BADGES GRID */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.75rem' }}>
+                {(milestoneBadges || []).map((badge) => {
+                  const isUnlocked = myStreak >= badge.reqStreak;
+                  return (
+                    <div 
+                      key={badge.id}
+                      style={{
+                        background: isUnlocked ? badge.bg : '#ffffff',
+                        border: '1.5px solid ' + (isUnlocked ? badge.border : '#e2e8f0'),
+                        borderRadius: '14px',
+                        padding: '0.75rem 0.6rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.6rem',
+                        opacity: isUnlocked ? 1 : 0.65,
+                        transition: 'all 200ms ease'
+                      }}
+                    >
+                      <span style={{ fontSize: '1.5rem' }}>{badge.icon}</span>
+                      <div>
+                        <div style={{ fontSize: '0.85rem', fontWeight: '800', color: isUnlocked ? badge.text : '#64748b' }}>{badge.title}</div>
+                        <div style={{ fontSize: '0.7rem', color: isUnlocked ? badge.text : '#94a3b8' }}>
+                          {isUnlocked ? 'Unlocked 🏆' : `Requires ${badge.reqStreak}-day streak`}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          </SectionErrorBoundary>
 
-          {/* ROW 1: DAILY HABIT & SUBMISSION CALENDAR MATCHING PICTURE 2 LAYOUT & THEME */}
-          <div className="card" style={{ borderColor: '#bfdbfe', borderWidth: '1.5px', background: '#ffffff', borderRadius: '20px', boxShadow: '0 10px 28px rgba(37,99,235,0.06)', padding: '1.75rem' }}>
+          {/* ROW 1: DAILY HABIT & SUBMISSION CALENDAR */}
+          <SectionErrorBoundary name="Daily Habit Calendar">
+
+            <div className="card" style={{ borderColor: '#bfdbfe', borderWidth: '1.5px', background: '#ffffff', borderRadius: '20px', boxShadow: '0 10px 28px rgba(37,99,235,0.06)', padding: '1.75rem' }}>
 
             {/* TOP HEADER MATCHING PICTURE 2 */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
@@ -637,10 +643,12 @@ export default function StudentDashboard() {
               </span>
             </div>
           </div>
-
+          </SectionErrorBoundary>
 
           {/* MY SCOREBOARD ENHANCEMENTS CARD */}
-          <div className="card" style={{ background: 'linear-gradient(135deg, #eff6ff, #dbeafe)', border: '1.5px solid #bfdbfe', borderRadius: '20px', padding: '1.5rem', marginBottom: '1.5rem', boxShadow: '0 8px 24px rgba(37,99,235,0.08)' }}>
+          <SectionErrorBoundary name="Scoreboard Breakdown">
+            <div className="card" style={{ background: 'linear-gradient(135deg, #eff6ff, #dbeafe)', border: '1.5px solid #bfdbfe', borderRadius: '20px', padding: '1.5rem', marginBottom: '1.5rem', boxShadow: '0 8px 24px rgba(37,99,235,0.08)' }}>
+
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.25rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
                 <div style={{ width: '52px', height: '52px', borderRadius: '16px', background: '#2563eb', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(37,99,235,0.3)' }}>
@@ -715,9 +723,12 @@ export default function StudentDashboard() {
               </div>
             </div>
           </div>
+          </SectionErrorBoundary>
 
-          {/* ROW 2: 3-COLUMN MIDDLE GRID MATCHING PICTURE 2 THEME & LAYOUT */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '1.25rem' }}>
+          {/* ROW 2: 3-COLUMN MIDDLE GRID */}
+          <SectionErrorBoundary name="Live Session & Domain Radar">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '1.25rem' }}>
+
             
             {/* CARD 1: LIVE GOOGLE MEET */}
             <div className="card" style={{ borderColor: '#bbf7d0', borderWidth: '1.5px', background: '#ffffff', borderRadius: '20px', boxShadow: '0 10px 28px rgba(16,185,129,0.06)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '1.5rem' }}>
@@ -845,12 +856,14 @@ export default function StudentDashboard() {
                 </a>
               </div>
             </div>
-
           </div>
-
+          </SectionErrorBoundary>
 
           {/* ROW 3: LEADERBOARD ENHANCEMENTS */}
-          <div className="card" style={{ borderColor: '#10b981', borderWidth: '1.5px', borderRadius: '20px', padding: '1.5rem', background: '#ffffff', boxShadow: '0 10px 28px rgba(16,185,129,0.06)' }}>
+
+          <SectionErrorBoundary name="Global Leaderboard">
+            <div className="card" style={{ borderColor: '#10b981', borderWidth: '1.5px', borderRadius: '20px', padding: '1.5rem', background: '#ffffff', boxShadow: '0 10px 28px rgba(16,185,129,0.06)' }}>
+
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
                 <Trophy size={26} style={{ color: '#f59e0b' }} />
@@ -1041,10 +1054,12 @@ export default function StudentDashboard() {
               </table>
             </div>
           </div>
-
+          </SectionErrorBoundary>
 
           {/* ROW 4: SUBMISSION PANEL & UPLOADED PIC UI */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '1.25rem' }}>
+          <SectionErrorBoundary name="Submission Panel">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '1.25rem' }}>
+
             <div className="card" style={{ borderColor: '#8b5cf6', borderWidth: '1.5px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
                 <h2 style={{ fontSize: '1.25rem', fontWeight: '800' }}>{currentUser?.name || 'Student'}'s Submission Panel</h2>
@@ -1110,12 +1125,15 @@ export default function StudentDashboard() {
                   {isUploading ? 'Uploading to Supabase Storage...' : 'Submit Deliverable via Supabase'}
                 </button>
               </form>
-
             </div>
+          </div>
+          </SectionErrorBoundary>
 
-            {/* ENHANCED QUICK LINKS & SCOREBOARD MINI DASHBOARD */}
-
+          {/* ENHANCED QUICK LINKS & SCOREBOARD MINI DASHBOARD */}
+          <SectionErrorBoundary name="Quick Links & Scoreboard Dashboard">
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+
+
               {/* 1. QUICK LINK CARDS (3-COLUMN RESPONSIVE GRID WITH HOVER LIFT & GRADIENTS & LAST OPENED TIMESTAMPS) */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
                 {/* Google Drive */}
@@ -1307,8 +1325,16 @@ export default function StudentDashboard() {
 
               </div>
             </div>
-          </div>
+          </SectionErrorBoundary>
         </>
+
+
+
+
+
+
+
+
 
       )}
 
