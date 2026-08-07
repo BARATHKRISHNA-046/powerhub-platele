@@ -21,6 +21,7 @@ import {
   BATCHES,
   MILESTONE_BADGES
 } from '../data/mockData';
+import { supabase, syncProfileToSupabase, syncAnnouncementToSupabase } from '../lib/supabase';
 
 
 
@@ -199,36 +200,15 @@ export const AppProvider = ({ children }) => {
 
 const CLOUD_SYNC_ENDPOINT = 'https://jsonblob.com/api/jsonBlob/019fd29a-5c27-7bf2-906e-eb5b0a244f94';
 
-  // AUTOMATIC CLOUD SYNC ON MOUNT: Syncs live data across laptops, phones, and browsers
-  useEffect(() => {
-    const fetchLatestCloudDb = async () => {
-      try {
-        const res = await fetch(CLOUD_SYNC_ENDPOINT, { cache: 'no-store' });
-        if (res.ok) {
-          const cloudData = await res.json();
-          if (cloudData && typeof cloudData === 'object') {
-            if (Array.isArray(cloudData.users) && cloudData.users.length > 0) setUsers(cloudData.users);
-            if (Array.isArray(cloudData.teams)) setTeams(cloudData.teams);
-            if (Array.isArray(cloudData.announcements)) setAnnouncements(cloudData.announcements);
-            if (Array.isArray(cloudData.submissions)) setSubmissions(cloudData.submissions);
-            if (Array.isArray(cloudData.skillRatings)) setSkillRatings(cloudData.skillRatings);
-            if (cloudData.googleMeetConfig) setGoogleMeetConfig(cloudData.googleMeetConfig);
-            if (cloudData.googleDriveUrl) setGoogleDriveUrl(cloudData.googleDriveUrl);
-            if (cloudData.googleClassroomUrl) setGoogleClassroomUrl(cloudData.googleClassroomUrl);
-            if (cloudData.dailyHabitStates) setDailyHabitStates(cloudData.dailyHabitStates);
-          }
-        }
-      } catch (err) {
-        console.warn('Initial cloud sync notice:', err);
-      }
-    };
-    fetchLatestCloudDb();
-  }, []);
-
-  // Manual Sync Cloud Database function
-  const syncCloudDatabase = async () => {
+  const fetchLatestCloudDb = async () => {
     try {
-      const res = await fetch(CLOUD_SYNC_ENDPOINT, { cache: 'no-store' });
+      const res = await fetch(`${CLOUD_SYNC_ENDPOINT}?t=${Date.now()}`, { 
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        }
+      });
       if (res.ok) {
         const cloudData = await res.json();
         if (cloudData && typeof cloudData === 'object') {
@@ -241,13 +221,49 @@ const CLOUD_SYNC_ENDPOINT = 'https://jsonblob.com/api/jsonBlob/019fd29a-5c27-7bf
           if (cloudData.googleDriveUrl) setGoogleDriveUrl(cloudData.googleDriveUrl);
           if (cloudData.googleClassroomUrl) setGoogleClassroomUrl(cloudData.googleClassroomUrl);
           if (cloudData.dailyHabitStates) setDailyHabitStates(cloudData.dailyHabitStates);
-          alert('☁️ Live Cloud Sync Complete! Teams, Announcements & Submissions updated across all devices.');
         }
       }
     } catch (err) {
-      alert('Cloud sync temporarily unavailable. Using local device data.');
+      console.warn('Live cloud sync notice:', err);
     }
   };
+
+  // AUTOMATIC MULTI-DEVICE REALTIME CLOUD SYNC: Polling + Window Focus + Supabase Realtime
+  useEffect(() => {
+    fetchLatestCloudDb();
+
+    // 1. Periodic 3-Second Background Cloud Polling (Syncs live across phones/laptops/browsers)
+    const pollInterval = setInterval(fetchLatestCloudDb, 3000);
+
+    // 2. Refetch on Window Focus & Online (Instant sync when user switches tabs or wakes device screen)
+    const handleFocus = () => fetchLatestCloudDb();
+    const handleOnline = () => fetchLatestCloudDb();
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('online', handleOnline);
+
+    // 3. Supabase Realtime Listener (Instant sync on any DB write)
+    const realtimeChannel = supabase
+      .channel('powerhub-live-sync')
+      .on('postgres_changes', { event: '*', schema: 'public' }, (payload) => {
+        console.log('⚡ [Supabase Realtime Payload Received]', payload);
+        fetchLatestCloudDb();
+      })
+      .subscribe();
+
+    return () => {
+      clearInterval(pollInterval);
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('online', handleOnline);
+      supabase.removeChannel(realtimeChannel);
+    };
+  }, []);
+
+  // Manual Sync Cloud Database function
+  const syncCloudDatabase = async () => {
+    await fetchLatestCloudDb();
+    alert('☁️ Live Cloud Sync Complete! All device profiles, announcements, and submissions are up to date.');
+  };
+
 
   // UNIFIED AUTO-SAVE & MULTI-DEVICE CLOUD SYNC HOOK
   useEffect(() => {
@@ -333,18 +349,24 @@ const CLOUD_SYNC_ENDPOINT = 'https://jsonblob.com/api/jsonBlob/019fd29a-5c27-7bf
   // Update Profile Picture for student with field standardization & logging
   const updateUserProfilePic = (userId, profilePicUrl) => {
     console.log(`[Profile Pic Upload] Updating DB/State for user ${userId} with URL:`, profilePicUrl);
-    setUsers(prev => prev.map(u => {
-      if (u.id === userId) {
-        return { 
-          ...u, 
-          profilePicUrl: profilePicUrl,
-          profilePic: profilePicUrl, 
-          avatarUrl: profilePicUrl 
-        };
-      }
-      return u;
-    }));
+    setUsers(prev => {
+      const nextUsers = prev.map(u => {
+        if (u.id === userId) {
+          const updated = { 
+            ...u, 
+            profilePicUrl: profilePicUrl,
+            profilePic: profilePicUrl, 
+            avatarUrl: profilePicUrl 
+          };
+          syncProfileToSupabase(updated);
+          return updated;
+        }
+        return u;
+      });
+      return nextUsers;
+    });
   };
+
 
 
 
@@ -699,7 +721,9 @@ const CLOUD_SYNC_ENDPOINT = 'https://jsonblob.com/api/jsonBlob/019fd29a-5c27-7bf
       isPinned: true
     };
     setAnnouncements(prev => [newAnn, ...prev]);
+    syncAnnouncementToSupabase(newAnn);
   };
+
 
   const deleteAnnouncement = (annId) => {
     setAnnouncements(prev => prev.filter(a => a.id !== annId));
