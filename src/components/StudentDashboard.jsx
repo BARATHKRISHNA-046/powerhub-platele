@@ -144,7 +144,7 @@ export default function StudentDashboard() {
 
   const studentDomain = currentUser.domain || 'FULLSTACK';
   const currentRoadmap = domainRoadmaps[studentDomain] || domainRoadmaps['FULLSTACK'];
-  const activeMonthHabits = monthlyHabits[selectedScheduleMonth] || monthlyHabits['August 2026'];
+
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>

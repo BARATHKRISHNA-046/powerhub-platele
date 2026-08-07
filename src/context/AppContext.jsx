@@ -209,7 +209,7 @@ const CLOUD_SYNC_ENDPOINT = 'https://jsonblob.com/api/jsonBlob/019fd29a-5c27-7bf
             if (cloudData.googleMeetConfig) setGoogleMeetConfig(cloudData.googleMeetConfig);
             if (cloudData.googleDriveUrl) setGoogleDriveUrl(cloudData.googleDriveUrl);
             if (cloudData.googleClassroomUrl) setGoogleClassroomUrl(cloudData.googleClassroomUrl);
-            if (cloudData.monthlyHabits) setMonthlyHabits(cloudData.monthlyHabits);
+            if (cloudData.dailyHabitStates) setDailyHabitStates(cloudData.dailyHabitStates);
           }
         }
       } catch (err) {
@@ -234,7 +234,7 @@ const CLOUD_SYNC_ENDPOINT = 'https://jsonblob.com/api/jsonBlob/019fd29a-5c27-7bf
           if (cloudData.googleMeetConfig) setGoogleMeetConfig(cloudData.googleMeetConfig);
           if (cloudData.googleDriveUrl) setGoogleDriveUrl(cloudData.googleDriveUrl);
           if (cloudData.googleClassroomUrl) setGoogleClassroomUrl(cloudData.googleClassroomUrl);
-          if (cloudData.monthlyHabits) setMonthlyHabits(cloudData.monthlyHabits);
+          if (cloudData.dailyHabitStates) setDailyHabitStates(cloudData.dailyHabitStates);
           alert('☁️ Live Cloud Sync Complete! Teams, Announcements & Submissions updated across all devices.');
         }
       }
@@ -256,7 +256,7 @@ const CLOUD_SYNC_ENDPOINT = 'https://jsonblob.com/api/jsonBlob/019fd29a-5c27-7bf
       googleMeetConfig,
       googleDriveUrl,
       googleClassroomUrl,
-      monthlyHabits,
+      dailyHabitStates,
       lastSavedAt: new Date().toISOString()
     };
 
@@ -280,8 +280,9 @@ const CLOUD_SYNC_ENDPOINT = 'https://jsonblob.com/api/jsonBlob/019fd29a-5c27-7bf
   }, [
     users, teams, submissions, skillRatings, announcements, 
     auditLogs, resumeProfiles, googleMeetConfig, googleDriveUrl, 
-    googleClassroomUrl, monthlyHabits
+    googleClassroomUrl, dailyHabitStates
   ]);
+
 
 
 
