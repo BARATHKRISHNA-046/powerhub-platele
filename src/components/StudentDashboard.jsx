@@ -45,10 +45,13 @@ export default function StudentDashboard() {
   const [studentModal, setStudentModal] = useState({ open: false, student: null });
 
   const [githubUrl, setGithubUrl] = useState('');
-
   const [imageAttachment, setImageAttachment] = useState('');
   const [isProject, setIsProject] = useState(true);
   const [mediaFile, setMediaFile] = useState(null);
+  const [submitError, setSubmitError] = useState('');
+  const [submitSuccess, setSubmitSuccess] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+
   // Quick Links Click Timestamp Tracking (localStorage)
   const [lastOpenedTimestamps, setLastOpenedTimestamps] = useState(() => ({
     drive: localStorage.getItem('ph_last_open_drive') || null,
