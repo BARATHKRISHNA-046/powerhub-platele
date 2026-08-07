@@ -631,23 +631,26 @@ const CLOUD_SYNC_ENDPOINT = 'https://jsonblob.com/api/jsonBlob/019fd29a-5c27-7bf
     const newSub = {
       id: `sub-${Date.now()}`,
       studentId: currentUser.id,
+      date: getISTDateDetails().todayStr,
       bootcampId: currentUser.bootcampId || 'bootcamp-1',
       roundName: roundName || 'Month 1 Sprint Submission',
       githubUrl: githubUrl.trim(),
       imageAttachment: imageAttachment || null,
+      mediaUrl: imageAttachment || null,
       videoAttachmentName: videoAttachmentName || null,
       submittedAt: new Date().toISOString(),
       isProject: Boolean(isProject),
       isFirstSubmitter,
-      status: 'pending',
+      status: 'submitted',
       isOnTime: true,
       reviewNotes: null
     };
 
     setSubmissions(prev => [newSub, ...prev]);
-    toggleDailyHabit('August 2026', 'Wed', 'submitDone');
+    toggleDailyHabit(currentUser.id, getISTDateDetails().todayStr, 'submitDone');
     return newSub;
   };
+
 
   const reviewSubmission = (submissionId, { status, skillRatingsObj, reviewNotes, isProject, isFirstSubmitter }) => {
     setSubmissions(prev => prev.map(s => {
