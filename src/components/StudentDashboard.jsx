@@ -256,30 +256,53 @@ export default function StudentDashboard() {
                   ))}
                 </select>
 
-                <span style={{ background: '#fff7ed', border: '1px solid #ffedd5', color: '#c2410c', padding: '0.4rem 0.85rem', borderRadius: '9999px', fontSize: '0.82rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                  <Flame size={15} fill="#ea580c" /> 2-Day Streak!
-                </span>
               </div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.75rem' }}>
               {activeMonthHabits.map((item) => {
+
                 let cardBg = '#f8fafc';
                 let cardBorder = '#e2e8f0';
+                let badgeBg = '#64748b';
+                let badgeText = '#ffffff';
+                let badgeLabel = 'Past (Locked)';
 
-                if (item.day === 'Mon' || item.day === 'Tue') { cardBg = '#dcfce7'; cardBorder = '#bbf7d0'; }
-                else if (item.day === 'Wed') { cardBg = '#e0f2fe'; cardBorder = '#0284c7'; }
-                else if (item.day === 'Thu') { cardBg = '#dbeafe'; cardBorder = '#bfdbfe'; }
-                else if (item.day === 'Fri') { cardBg = '#ffedd5'; cardBorder = '#fed7aa'; }
-                else if (item.day === 'Sat') { cardBg = '#f1f5f9'; cardBorder = '#cbd5e1'; }
-                else if (item.day === 'Sun') { cardBg = '#cffaff'; cardBorder = '#a5f3fc'; }
-
+                if (item.studyDone && item.submitDone) {
+                  // Completed / Done -> Green
+                  cardBg = '#f0fdf4';
+                  cardBorder = '#86efac';
+                  badgeBg = '#059669';
+                  badgeText = '#ffffff';
+                  badgeLabel = 'Completed ✔';
+                } else if (item.isActive) {
+                  // Today Active -> Amber / Gold
+                  cardBg = '#fffbeb';
+                  cardBorder = '#fde68a';
+                  badgeBg = '#d97706';
+                  badgeText = '#ffffff';
+                  badgeLabel = '★ TODAY ACTIVE';
+                } else if (!item.isPast) {
+                  // Scheduled / Upcoming -> Blue
+                  cardBg = '#f0f9ff';
+                  cardBorder = '#bae6fd';
+                  badgeBg = '#0284c7';
+                  badgeText = '#ffffff';
+                  badgeLabel = 'Scheduled';
+                } else {
+                  // Locked / Past -> Gray
+                  cardBg = '#f8fafc';
+                  cardBorder = '#cbd5e1';
+                  badgeBg = '#64748b';
+                  badgeText = '#ffffff';
+                  badgeLabel = 'Past (Locked)';
+                }
 
                 return (
-                  <div key={item.day} style={{ background: cardBg, border: '1.5px solid ' + (item.isActive ? '#0284c7' : cardBorder), borderRadius: 'var(--radius-md)', padding: '0.85rem 0.75rem', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                  <div key={item.day} style={{ background: cardBg, border: `1.5px solid ${cardBorder}`, borderRadius: 'var(--radius-md)', padding: '0.85rem 0.75rem', display: 'flex', flexDirection: 'column', gap: '0.65rem', boxShadow: item.isActive ? '0 4px 12px rgba(217, 119, 6, 0.15)' : 'none' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span style={{ fontWeight: '800', fontSize: '0.92rem', color: '#0f172a' }}>{item.day}</span>
-                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{item.dateLabel}</span>
+                      <span style={{ fontWeight: '800', fontSize: '0.92rem', color: '#0f172a', fontFamily: 'var(--font-heading)' }}>{item.day}</span>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: '600' }}>{item.dateLabel}</span>
                     </div>
 
                     <label style={{ background: item.studyDone ? '#059669' : '#ffffff', color: item.studyDone ? '#ffffff' : '#0f172a', border: '1px solid ' + (item.studyDone ? '#059669' : 'var(--border-medium)'), padding: '0.35rem 0.5rem', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: item.isActive ? 'pointer' : 'default' }} onClick={() => item.isActive && toggleDailyHabit(selectedScheduleMonth, item.day, 'studyDone')}>
@@ -287,24 +310,22 @@ export default function StudentDashboard() {
                       <input type="checkbox" checked={item.studyDone} readOnly style={{ accentColor: '#059669' }} />
                     </label>
 
-                    <label style={{ background: item.submitDone ? '#059669' : '#ffffff', color: item.submitDone ? '#ffffff' : '#0f172a', border: '1.5px solid ' + (item.submitDone ? '#059669' : 'var(--border-medium)'), padding: '0.35rem 0.5rem', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: item.isActive ? 'pointer' : 'default' }} onClick={() => item.isActive && toggleDailyHabit(selectedScheduleMonth, item.day, 'submitDone')}>
+                    <label style={{ background: item.submitDone ? '#059669' : '#ffffff', color: item.submitDone ? '#ffffff' : '#0f172a', border: '1px solid ' + (item.submitDone ? '#059669' : 'var(--border-medium)'), padding: '0.35rem 0.5rem', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: item.isActive ? 'pointer' : 'default' }} onClick={() => item.isActive && toggleDailyHabit(selectedScheduleMonth, item.day, 'submitDone')}>
                       <span>📤 11:00 PM Subm...</span>
                       <input type="checkbox" checked={item.submitDone} readOnly style={{ accentColor: '#059669' }} />
                     </label>
 
-
                     <div style={{ textAlign: 'center', marginTop: '0.2rem' }}>
-                      {item.isActive ? (
-                        <span style={{ background: '#2563eb', color: '#ffffff', padding: '0.15rem 0.5rem', borderRadius: '4px', fontSize: '0.65rem', fontWeight: '800' }}>★ TODAY ACTIVE</span>
-                      ) : (
-                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}><Lock size={10} /> {item.isPast ? 'Past (Locked)' : 'Scheduled'}</span>
-                      )}
+                      <span style={{ background: badgeBg, color: badgeText, padding: '0.15rem 0.5rem', borderRadius: '4px', fontSize: '0.65rem', fontWeight: '800' }}>
+                        {badgeLabel}
+                      </span>
                     </div>
                   </div>
                 );
               })}
             </div>
           </div>
+
 
           {/* ROW 2: 3-COLUMN MIDDLE GRID */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.25rem' }}>

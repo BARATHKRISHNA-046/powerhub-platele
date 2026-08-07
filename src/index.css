@@ -47,8 +47,8 @@
   --radius-xl: 24px;
   --radius-full: 9999px;
   
-  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-heading: 'Outfit', 'Plus Jakarta Sans', sans-serif;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-heading: 'Poppins', sans-serif;
 }
 
 * {
@@ -59,10 +59,31 @@
 
 body {
   font-family: var(--font-sans);
-  background-color: var(--bg-alt);
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11', 'tnum';
+  background-color: #f8fafc;
   color: var(--text-main);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  position: relative;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* SOFT BLURRED MESH GRADIENT BACKGROUND LAYER (Lavender #c5bdf9 -> Pink #f1c0e5 -> Peach #fad9d9) */
+body::before {
+  content: '';
+  position: fixed;
+  inset: -120px;
+  z-index: -1;
+  pointer-events: none;
+  background: 
+    radial-gradient(circle at 12% 15%, rgba(197, 189, 249, 0.45) 0%, transparent 45%),
+    radial-gradient(circle at 88% 22%, rgba(241, 192, 229, 0.45) 0%, transparent 45%),
+    radial-gradient(circle at 50% 88%, rgba(250, 217, 217, 0.45) 0%, transparent 50%),
+    radial-gradient(circle at 85% 78%, rgba(197, 189, 249, 0.35) 0%, transparent 40%),
+    radial-gradient(circle at 15% 82%, rgba(241, 192, 229, 0.35) 0%, transparent 40%);
+  filter: blur(75px);
+  opacity: 0.85;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -157,7 +178,7 @@ input, textarea, select {
 }
 
 .btn-outline {
-  background-color: transparent;
+  background-color: #ffffff;
   border: 1.5px solid var(--border-medium);
   color: var(--dark-navy);
   font-weight: 600;
@@ -180,7 +201,7 @@ input, textarea, select {
   background-color: var(--bg-card);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
-  border: 1px solid rgba(226, 232, 240, 0.8);
+  border: 1px solid rgba(226, 232, 240, 0.85);
   padding: 1.5rem;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
@@ -306,6 +327,7 @@ input, textarea, select {
   font-weight: 800;
   color: var(--text-main);
   line-height: 1.1;
+  font-feature-settings: 'tnum';
 }
 
 .stat-label {
@@ -357,4 +379,3 @@ input, textarea, select {
     background: transparent !important;
   }
 }
-
