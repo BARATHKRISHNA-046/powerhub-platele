@@ -379,3 +379,12 @@ input, textarea, select {
     background: transparent !important;
   }
 }
+
+.quick-link-card {
+  transition: transform 200ms ease, box-shadow 200ms ease;
+}
+.quick-link-card:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.12) !important;
+}
+

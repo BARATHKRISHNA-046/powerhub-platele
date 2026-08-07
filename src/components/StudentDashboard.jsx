@@ -45,10 +45,30 @@ export default function StudentDashboard() {
   const [imageAttachment, setImageAttachment] = useState('');
   const [isProject, setIsProject] = useState(true);
   const [mediaFile, setMediaFile] = useState(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [submitError, setSubmitError] = useState('');
-  const [submitSuccess, setSubmitSuccess] = useState('');
+  // Quick Links Click Timestamp Tracking (localStorage)
+  const [lastOpenedTimestamps, setLastOpenedTimestamps] = useState(() => ({
+    drive: localStorage.getItem('ph_last_open_drive') || null,
+    classroom: localStorage.getItem('ph_last_open_classroom') || null,
+    community: localStorage.getItem('ph_last_open_community') || null
+  }));
+
+  const handleQuickLinkClick = (key) => {
+    const now = new Date().toISOString();
+    localStorage.setItem(`ph_last_open_${key}`, now);
+    setLastOpenedTimestamps(prev => ({ ...prev, [key]: now }));
+  };
+
+  const formatDaysAgo = (isoStr) => {
+    if (!isoStr) return "Not opened yet";
+    const diffMs = Date.now() - new Date(isoStr).getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    if (diffDays === 0) return "Opened today";
+    if (diffDays === 1) return "Opened yesterday";
+    return `Last opened ${diffDays} days ago`;
+  };
+
   const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'roadmap' | 'resume'
+
 
   const allCalendarDays = React.useMemo(() => generateCalendarDays(), []);
 
@@ -1086,28 +1106,202 @@ export default function StudentDashboard() {
 
             </div>
 
+            {/* ENHANCED QUICK LINKS & SCOREBOARD MINI DASHBOARD */}
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <a href={googleDriveUrl} target="_blank" rel="noreferrer" style={{ textDecoration: 'none', background: '#ffffff', border: '2px solid #10b981', borderRadius: '20px', padding: '1.75rem 1.25rem', textAlign: 'center' }}>
-                  <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: '#e6f4ea', margin: '0 auto 0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.8rem' }}>📁</div>
-                  <h3 style={{ fontSize: '1.15rem', fontWeight: '900', color: '#0f172a' }}>Google Drive <ExternalLink size={14} /></h3>
-                  <span style={{ fontSize: '0.82rem', color: '#64748b', fontWeight: '600' }}>Cohort Assets & Slides</span>
+              {/* 1. QUICK LINK CARDS (3-COLUMN RESPONSIVE GRID WITH HOVER LIFT & GRADIENTS & LAST OPENED TIMESTAMPS) */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+                {/* Google Drive */}
+                <a 
+                  href={googleDriveUrl} 
+                  target="_blank" 
+                  rel="noreferrer" 
+                  onClick={() => handleQuickLinkClick('drive')}
+                  className="quick-link-card"
+                  style={{ 
+                    textDecoration: 'none', 
+                    background: '#ffffff', 
+                    border: '2px solid #10b981', 
+                    borderRadius: '20px', 
+                    padding: '1.25rem 1rem', 
+                    textAlign: 'center',
+                    boxShadow: '0 4px 12px rgba(16,185,129,0.06)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <div style={{ width: '52px', height: '52px', borderRadius: '16px', background: 'linear-gradient(135deg, #dcfce7, #bbf7d0)', color: '#059669', border: '1px solid #86efac', margin: '0 auto 0.65rem', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.6rem', boxShadow: '0 4px 10px rgba(16,185,129,0.15)' }}>
+                    📁
+                  </div>
+                  <h3 style={{ fontSize: '1.05rem', fontWeight: '900', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                    Google Drive <ExternalLink size={13} style={{ color: '#059669' }} />
+                  </h3>
+                  <span style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: '600', marginTop: '0.15rem' }}>Cohort Assets & Slides</span>
+                  <span style={{ fontSize: '0.72rem', color: '#059669', fontWeight: '800', marginTop: '0.4rem', background: '#f0fdf4', padding: '0.2rem 0.55rem', borderRadius: '6px', border: '1px solid #bbf7d0' }}>
+                    🕒 {formatDaysAgo(lastOpenedTimestamps.drive)}
+                  </span>
                 </a>
 
-                <a href={googleClassroomUrl} target="_blank" rel="noreferrer" style={{ textDecoration: 'none', background: '#ffffff', border: '2px solid #10b981', borderRadius: '20px', padding: '1.75rem 1.25rem', textAlign: 'center' }}>
-                  <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: '#e6f4ea', margin: '0 auto 0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.8rem' }}>👨‍🏫</div>
-                  <h3 style={{ fontSize: '1.15rem', fontWeight: '900', color: '#0f172a' }}>Google Classroom <ExternalLink size={14} /></h3>
-                  <span style={{ fontSize: '0.82rem', color: '#64748b', fontWeight: '600' }}>Assignments & Tasks</span>
+                {/* Google Classroom */}
+                <a 
+                  href={googleClassroomUrl} 
+                  target="_blank" 
+                  rel="noreferrer" 
+                  onClick={() => handleQuickLinkClick('classroom')}
+                  className="quick-link-card"
+                  style={{ 
+                    textDecoration: 'none', 
+                    background: '#ffffff', 
+                    border: '2px solid #2563eb', 
+                    borderRadius: '20px', 
+                    padding: '1.25rem 1rem', 
+                    textAlign: 'center',
+                    boxShadow: '0 4px 12px rgba(37,99,235,0.06)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <div style={{ width: '52px', height: '52px', borderRadius: '16px', background: 'linear-gradient(135deg, #eff6ff, #bfdbfe)', color: '#2563eb', border: '1px solid #93c5fd', margin: '0 auto 0.65rem', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.6rem', boxShadow: '0 4px 10px rgba(37,99,235,0.15)' }}>
+                    👨‍🏫
+                  </div>
+                  <h3 style={{ fontSize: '1.05rem', fontWeight: '900', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                    Google Classroom <ExternalLink size={13} style={{ color: '#2563eb' }} />
+                  </h3>
+                  <span style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: '600', marginTop: '0.15rem' }}>Assignments & Tasks</span>
+                  <span style={{ fontSize: '0.72rem', color: '#1d4ed8', fontWeight: '800', marginTop: '0.4rem', background: '#eff6ff', padding: '0.2rem 0.55rem', borderRadius: '6px', border: '1px solid #bfdbfe' }}>
+                    🕒 {formatDaysAgo(lastOpenedTimestamps.classroom)}
+                  </span>
+                </a>
+
+                {/* Community & Resources */}
+                <a 
+                  href="https://discord.gg" 
+                  target="_blank" 
+                  rel="noreferrer" 
+                  onClick={() => handleQuickLinkClick('community')}
+                  className="quick-link-card"
+                  style={{ 
+                    textDecoration: 'none', 
+                    background: '#ffffff', 
+                    border: '2px solid #ea580c', 
+                    borderRadius: '20px', 
+                    padding: '1.25rem 1rem', 
+                    textAlign: 'center',
+                    boxShadow: '0 4px 12px rgba(234,88,12,0.06)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <div style={{ width: '52px', height: '52px', borderRadius: '16px', background: 'linear-gradient(135deg, #fff7ed, #fed7aa)', color: '#ea580c', border: '1px solid #fdba74', margin: '0 auto 0.65rem', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.6rem', boxShadow: '0 4px 10px rgba(234,88,12,0.15)' }}>
+                    💬
+                  </div>
+                  <h3 style={{ fontSize: '1.05rem', fontWeight: '900', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                    Community Hub <ExternalLink size={13} style={{ color: '#ea580c' }} />
+                  </h3>
+                  <span style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: '600', marginTop: '0.15rem' }}>Peer Discussion & Docs</span>
+                  <span style={{ fontSize: '0.72rem', color: '#ea580c', fontWeight: '800', marginTop: '0.4rem', background: '#fff7ed', padding: '0.2rem 0.55rem', borderRadius: '6px', border: '1px solid #fed7aa' }}>
+                    🕒 {formatDaysAgo(lastOpenedTimestamps.community)}
+                  </span>
                 </a>
               </div>
 
-              <div className="card" style={{ borderColor: '#0284c7', borderWidth: '1.5px' }}>
-                <h3 style={{ fontSize: '1.2rem', fontWeight: '800', marginBottom: '0.5rem' }}>My Scoreboard Summary</h3>
-                <span style={{ fontSize: '1.4rem', fontWeight: '900', color: '#2563eb' }}>{myScore.totalScore} TOTAL PTS</span>
+              {/* 2. SCOREBOARD CARD — REDESIGNED AS MINI DASHBOARD (3 STAT CARDS + SLIM BREAKDOWN PILL ROW) */}
+              <div style={{ background: 'linear-gradient(135deg, #f8fafc, #eff6ff)', border: '1.5px solid #bfdbfe', borderRadius: '20px', padding: '1.25rem', boxShadow: '0 6px 20px rgba(37,99,235,0.06)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                    <Award size={20} style={{ color: '#2563eb' }} />
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: '800', fontFamily: 'var(--font-heading)', color: '#0f172a' }}>My Scoreboard Dashboard</h3>
+                  </div>
+                  <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#2563eb', background: '#ffffff', padding: '0.2rem 0.65rem', borderRadius: '9999px', border: '1px solid #bfdbfe' }}>
+                    Live Sync
+                  </span>
+                </div>
+
+                {/* 3 EQUAL-HEIGHT STAT CARDS GRID */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '0.85rem', marginBottom: '1rem' }}>
+                  
+                  {/* STAT CARD A: TOTAL POINTS WITH CIRCULAR SVG PROGRESS RING & ANIMATED COUNT UP */}
+                  <div style={{ background: 'linear-gradient(135deg, #ffffff, #eff6ff)', border: '1.5px solid #bfdbfe', borderRadius: '16px', padding: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', textAlign: 'center' }}>
+                    {/* SVG CIRCULAR PROGRESS RING */}
+                    <div style={{ position: 'relative', width: '70px', height: '70px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '0.4rem' }}>
+                      <svg width="70" height="70" viewBox="0 0 70 70" style={{ transform: 'rotate(-90deg)', position: 'absolute' }}>
+                        <circle cx="35" cy="35" r="28" stroke="#e2e8f0" strokeWidth="6" fill="transparent" />
+                        <circle 
+                          cx="35" 
+                          cy="35" 
+                          r="28" 
+                          stroke="#2563eb" 
+                          strokeWidth="6" 
+                          fill="transparent" 
+                          strokeDasharray={2 * Math.PI * 28}
+                          strokeDashoffset={2 * Math.PI * 28 * (1 - ((myScore.totalScore % 25) / 25))}
+                          strokeLinecap="round"
+                          style={{ transition: 'stroke-dashoffset 800ms ease' }}
+                        />
+                      </svg>
+                      <span style={{ fontSize: '1.35rem', fontWeight: '900', color: '#1d4ed8', zIndex: 1 }}>
+                        {myScore.totalScore}
+                      </span>
+                    </div>
+
+                    <div style={{ fontSize: '0.82rem', fontWeight: '800', color: '#0f172a' }}>Total Points</div>
+                    <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: '600', marginTop: '0.1rem' }}>
+                      Progress to next 25-pt tier: {(myScore.totalScore % 25)}/25
+                    </div>
+                  </div>
+
+                  {/* STAT CARD B: CURRENT RANK WITH ▲ / ▼ INDICATOR */}
+                  <div style={{ background: 'linear-gradient(135deg, #ffffff, #eff6ff)', border: '1.5px solid #bfdbfe', borderRadius: '16px', padding: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.2rem' }}>
+                      <span style={{ fontSize: '1.8rem', fontWeight: '900', color: '#0f172a' }}>#{myRank}</span>
+                      <span style={{ fontSize: '0.9rem', fontWeight: '900', color: myRankItem?.rankColor || '#16a34a', background: '#ffffff', padding: '0.15rem 0.45rem', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+                        {myRankItem?.rankIndicator || '—'}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.82rem', fontWeight: '800', color: '#0f172a' }}>Current Rank</div>
+                    <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: '600', marginTop: '0.1rem' }}>
+                      {myRank === 1 ? '🥇 Rank #1 Leader!' : `Compared to yesterday (#${myRankItem?.yesterdayRank || myRank})`}
+                    </div>
+                  </div>
+
+                  {/* STAT CARD C: STREAK WITH VISUAL FLAME */}
+                  <div style={{ background: 'linear-gradient(135deg, #ffffff, #fff7ed)', border: '1.5px solid ' + (myStreak > 0 ? '#fed7aa' : '#cbd5e1'), borderRadius: '16px', padding: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.2rem' }}>
+                      <span style={{ fontSize: '1.8rem', opacity: myStreak > 0 ? 1 : 0.4, filter: myStreak > 0 ? 'none' : 'grayscale(100%)' }}>🔥</span>
+                      <span style={{ fontSize: '1.5rem', fontWeight: '900', color: myStreak > 0 ? '#ea580c' : '#64748b' }}>{myStreak} days</span>
+                    </div>
+                    <div style={{ fontSize: '0.82rem', fontWeight: '800', color: '#0f172a' }}>Active Habit Streak</div>
+                    <div style={{ fontSize: '0.7rem', color: myStreak > 0 ? '#c2410c' : '#64748b', fontWeight: '600', marginTop: '0.1rem' }}>
+                      {myStreak > 0 ? '🔥 Streak Active!' : '0 days (Mark today done)'}
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* SLIM HORIZONTAL BREAKDOWN PILL ROW */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: '0.6rem', paddingTop: '0.65rem', borderTop: '1px solid #dbeafe' }}>
+                  <span style={{ background: '#ffffff', border: '1px solid #cbd5e1', color: '#334155', padding: '0.25rem 0.65rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: '700' }}>
+                    On-time: <b style={{ color: '#16a34a' }}>{myScore.onTimeCount || 0}</b>
+                  </span>
+                  <span style={{ background: '#ffffff', border: '1px solid #cbd5e1', color: '#334155', padding: '0.25rem 0.65rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: '700' }}>
+                    Streak Bonus: <b style={{ color: '#ea580c' }}>+{myScore.streakBonusPts || 0} pts</b>
+                  </span>
+                  <span style={{ background: '#ffffff', border: '1px solid #cbd5e1', color: '#334155', padding: '0.25rem 0.65rem', borderRadius: '9999px', fontSize: '0.75rem', fontWeight: '700' }}>
+                    Late Penalty: <b style={{ color: '#dc2626' }}>-{myScore.penaltyPts || 0} pts</b>
+                  </span>
+                </div>
+
               </div>
             </div>
           </div>
         </>
+
       )}
 
       {/* STUDENT CLICKABLE ROW MODAL — SUBMISSION HISTORY & POINTS BREAKDOWN */}
