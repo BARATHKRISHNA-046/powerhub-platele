@@ -202,6 +202,50 @@ export const SCHEDULE_MONTHS = [
   'March 2027'
 ];
 
+export const getISTDateDetails = () => {
+  const now = new Date();
+  
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+
+  const parts = formatter.formatToParts(now);
+  const getPart = type => parts.find(p => p.type === type)?.value;
+
+  const yyyy = getPart('year') || '2026';
+  const mm = getPart('month') || '08';
+  const dd = getPart('day') || '07';
+  const todayStr = `${yyyy}-${mm}-${dd}`;
+
+  const hours = parseInt(getPart('hour') || '0', 10);
+  const minutes = parseInt(getPart('minute') || '0', 10);
+  const seconds = parseInt(getPart('second') || '0', 10);
+
+  const isPast11PM = hours >= 23;
+
+  let secondsTo11PM = 0;
+  if (!isPast11PM) {
+    secondsTo11PM = ((22 - hours) * 3600) + ((59 - minutes) * 60) + (60 - seconds);
+  }
+
+  return {
+    todayStr,
+    hours,
+    minutes,
+    seconds,
+    isPast11PM,
+    secondsTo11PM
+  };
+};
+
+
 export const PASTEL_PALETTE = [
   { bg: '#fbe9d1', border: '#fed7aa', text: '#9a4216' }, // Peach
   { bg: '#cae6fe', border: '#bfdbfe', text: '#1e40af' }, // Blue

@@ -15,8 +15,10 @@ import {
   MONTHLY_DAILY_SCHEDULES,
   AI_TEAM_AVATARS,
   EMOJI_COMBOS,
-  DOMAIN_ROADMAPS
+  DOMAIN_ROADMAPS,
+  getISTDateDetails
 } from '../data/mockData';
+
 
 const AppContext = createContext();
 
@@ -331,29 +333,59 @@ const CLOUD_SYNC_ENDPOINT = 'https://jsonblob.com/api/jsonBlob/019fd29a-5c27-7bf
     }));
   };
 
-  const toggleDailyHabit = (dateStr, field) => {
-    const now = new Date();
-    const yyyy = now.getFullYear();
-    const mm = String(now.getMonth() + 1).padStart(2, '0');
-    const dd = String(now.getDate()).padStart(2, '0');
-    const todayStr = `${yyyy}-${mm}-${dd}`;
+  const getStudentHabitRecord = (studentId, dateStr) => {
+    const { todayStr, isPast11PM } = getISTDateDetails();
+    const key = `${studentId}_${dateStr}`;
+    const raw = dailyHabitStates[key] || dailyHabitStates[dateStr] || { studyDone: false, submitDone: false };
 
-    // Only allow writes to today's date entry
-    if (dateStr !== todayStr) {
-      return;
+    const isPast = dateStr < todayStr;
+    const isToday = dateStr === todayStr;
+
+    let isMissed = false;
+    if (isPast && !raw.submitDone) {
+      isMissed = true;
+    } else if (isToday && isPast11PM && !raw.submitDone) {
+      isMissed = true;
     }
 
+    return {
+      studyDone: Boolean(raw.studyDone),
+      submitDone: Boolean(raw.submitDone),
+      isMissed
+    };
+  };
+
+  const toggleDailyHabit = (studentId, dateStr, field) => {
+    const { todayStr, isPast11PM } = getISTDateDetails();
+
+    // 1. Strict Date Validation: Only allow writes to TODAY'S date entry (Asia/Kolkata timezone)
+    if (dateStr !== todayStr) {
+      console.warn(`[Backend & Frontend Validation Blocked] Cannot edit non-today date: ${dateStr}. Today is ${todayStr}.`);
+      return false;
+    }
+
+    // 2. Strict 11:00 PM IST Cutoff Enforcement for Submissions:
+    if (field === 'submitDone' && isPast11PM) {
+      console.warn(`[11:00 PM IST Cutoff Blocked] 11:00 PM IST submission deadline cutoff has passed.`);
+      return false;
+    }
+
+    const targetStudentId = studentId || currentUser?.id || 'user-barath';
+    const key = `${targetStudentId}_${dateStr}`;
+
     setDailyHabitStates(prev => {
-      const currentDay = prev[dateStr] || { studyDone: false, submitDone: false };
+      const currentVal = prev[key] || prev[dateStr] || { studyDone: false, submitDone: false };
       return {
         ...prev,
-        [dateStr]: {
-          ...currentDay,
-          [field]: !currentDay[field]
+        [key]: {
+          ...currentVal,
+          [field]: !currentVal[field]
         }
       };
     });
+    return true;
   };
+
 
 
   const updateGoogleSuiteConfig = ({ topic, timing, meetUrl, driveUrl, classroomUrl }) => {
@@ -560,6 +592,8 @@ const CLOUD_SYNC_ENDPOINT = 'https://jsonblob.com/api/jsonBlob/019fd29a-5c27-7bf
       updateResumeProfile,
       updateUserProfilePic,
       toggleDailyHabit,
+      getStudentHabitRecord,
+
 
       updateGoogleSuiteConfig,
       currentUser,

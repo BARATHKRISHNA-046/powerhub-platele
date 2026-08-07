@@ -22,16 +22,15 @@ import {
 
 ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
 
-import { generateCalendarDays, SCHEDULE_MONTHS } from '../data/mockData';
+import { generateCalendarDays, SCHEDULE_MONTHS, getISTDateDetails } from '../data/mockData';
 
 export default function StudentDashboard() {
   const { 
     currentUser, users, teams, submissions, skillRatings, announcements, 
     googleMeetConfig, googleDriveUrl, googleClassroomUrl, scheduleMonths, 
     dailyHabitStates, selectedScheduleMonth, setSelectedScheduleMonth, 
-    domainRoadmaps, toggleDailyHabit, calculateStudentScore, submitWork 
+    domainRoadmaps, toggleDailyHabit, getStudentHabitRecord, calculateStudentScore, submitWork 
   } = useApp();
-
 
   const [githubUrl, setGithubUrl] = useState('');
   const [imageAttachment, setImageAttachment] = useState('');
@@ -44,18 +43,23 @@ export default function StudentDashboard() {
 
   const allCalendarDays = React.useMemo(() => generateCalendarDays(), []);
 
-  const getTodayStr = () => {
-    const now = new Date();
-    const yyyy = now.getFullYear();
-    const mm = String(now.getMonth() + 1).padStart(2, '0');
-    const dd = String(now.getDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
-  };
-  const todayStr = getTodayStr();
+  // Asia/Kolkata Timezone (IST) State
+  const [istInfo, setIstInfo] = useState(() => getISTDateDetails());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setIstInfo(getISTDateDetails());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const todayStr = istInfo.todayStr;
+  const isPast11PM = istInfo.isPast11PM;
 
   const activeMonthDays = React.useMemo(() => {
     return allCalendarDays.filter(d => d.monthName === selectedScheduleMonth);
   }, [allCalendarDays, selectedScheduleMonth]);
+
 
   useEffect(() => {
     if (window.location.hash === '#resume') {
@@ -263,31 +267,45 @@ export default function StudentDashboard() {
                     Daily Habit & Submission Calendar (Aug 2026 – Mar 2027)
                   </h2>
                   <p style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '0.15rem' }}>
-                    Shuffled pastel daily cards across full 8-month schedule. Only active current day boxes are tickable.
+                    Asia/Kolkata Timezone (IST). 11:00 PM IST submission cutoff enforced. Only today's active card is editable.
                   </p>
                 </div>
               </div>
 
-              <select
-                value={selectedScheduleMonth}
-                onChange={e => setSelectedScheduleMonth(e.target.value)}
-                style={{
-                  background: '#ffffff',
-                  border: '1.5px solid #bfdbfe',
-                  color: '#1d4ed8',
-                  padding: '0.5rem 1.1rem',
-                  borderRadius: '12px',
-                  fontSize: '0.85rem',
-                  fontWeight: '800',
-                  outline: 'none',
-                  cursor: 'pointer',
-                  boxShadow: '0 2px 6px rgba(37,99,235,0.08)'
-                }}
-              >
-                {scheduleMonths.map(m => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </select>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                {/* 11:00 PM IST LIVE COUNTDOWN BANNER */}
+                {!isPast11PM ? (
+                  <span style={{ background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1d4ed8', padding: '0.45rem 0.95rem', borderRadius: '12px', fontSize: '0.82rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '0.4rem', boxShadow: '0 2px 6px rgba(37,99,235,0.08)' }}>
+                    <Clock size={15} style={{ color: '#2563eb' }} />
+                    Cutoff in: {Math.floor(istInfo.secondsTo11PM / 3600)}h {Math.floor((istInfo.secondsTo11PM % 3600) / 60)}m {istInfo.secondsTo11PM % 60}s (11:00 PM IST)
+                  </span>
+                ) : (
+                  <span style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', padding: '0.45rem 0.95rem', borderRadius: '12px', fontSize: '0.82rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <Lock size={15} /> 11:00 PM IST Cutoff Passed (Locked)
+                  </span>
+                )}
+
+                <select
+                  value={selectedScheduleMonth}
+                  onChange={e => setSelectedScheduleMonth(e.target.value)}
+                  style={{
+                    background: '#ffffff',
+                    border: '1.5px solid #bfdbfe',
+                    color: '#1d4ed8',
+                    padding: '0.5rem 1.1rem',
+                    borderRadius: '12px',
+                    fontSize: '0.85rem',
+                    fontWeight: '800',
+                    outline: 'none',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 6px rgba(37,99,235,0.08)'
+                  }}
+                >
+                  {scheduleMonths.map(m => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             {/* PASTEL SKILL PILL TAGS ROW MATCHING PICTURE 2 */}
@@ -317,9 +335,10 @@ export default function StudentDashboard() {
             >
               {activeMonthDays.map((item) => {
                 const dateStr = item.dateStr;
-                const dayState = dailyHabitStates[dateStr] || { studyDone: false, submitDone: false };
-                const studyDone = Boolean(dayState.studyDone);
-                const submitDone = Boolean(dayState.submitDone);
+                const habitRec = getStudentHabitRecord(currentUser.id, dateStr);
+                const studyDone = habitRec.studyDone;
+                const submitDone = habitRec.submitDone;
+                const isMissed = habitRec.isMissed;
 
                 const isPast = dateStr < todayStr;
                 const isActive = dateStr === todayStr;
@@ -330,14 +349,24 @@ export default function StudentDashboard() {
                 let badgeLabel = 'Past (Locked)';
 
                 if (isPast) {
-                  badgeBg = '#64748b';
-                  badgeText = '#ffffff';
-                  badgeLabel = 'Past (Locked)';
+                  if (isMissed) {
+                    badgeBg = '#ef4444';
+                    badgeText = '#ffffff';
+                    badgeLabel = 'Missed ❌';
+                  } else {
+                    badgeBg = '#64748b';
+                    badgeText = '#ffffff';
+                    badgeLabel = 'Past (Locked)';
+                  }
                 } else if (isActive) {
                   if (studyDone && submitDone) {
                     badgeBg = '#059669';
                     badgeText = '#ffffff';
                     badgeLabel = 'Completed ✓';
+                  } else if (isPast11PM && !submitDone) {
+                    badgeBg = '#ef4444';
+                    badgeText = '#ffffff';
+                    badgeLabel = '11 PM Cutoff (Missed ❌)';
                   } else {
                     badgeBg = '#d97706';
                     badgeText = '#ffffff';
@@ -349,12 +378,15 @@ export default function StudentDashboard() {
                   badgeLabel = 'Scheduled';
                 }
 
+                // 11:00 PM IST Submission Checkbox Locking Rule
+                const isSubmitLocked = !isActive || isPast11PM;
+
                 return (
                   <div 
                     key={dateStr} 
                     style={{ 
-                      minWidth: '155px', 
-                      width: '155px', 
+                      minWidth: '160px', 
+                      width: '160px', 
                       flexShrink: 0, 
                       scrollSnapAlign: 'start',
                       background: item.pastel.bg, 
@@ -389,7 +421,7 @@ export default function StudentDashboard() {
                         cursor: isActive ? 'pointer' : 'not-allowed',
                         opacity: isActive ? 1 : 0.85 
                       }} 
-                      onClick={() => isActive && toggleDailyHabit(dateStr, 'studyDone')}
+                      onClick={() => isActive && toggleDailyHabit(currentUser.id, dateStr, 'studyDone')}
                     >
                       <span>📖 7 PM Study</span>
                       <input 
@@ -401,12 +433,12 @@ export default function StudentDashboard() {
                       />
                     </label>
 
-                    {/* 11:00 PM Submission Checkbox */}
+                    {/* 11:00 PM Submission Checkbox (Auto-Locked at 11:00 PM IST) */}
                     <label 
                       style={{ 
-                        background: submitDone ? '#059669' : '#ffffff', 
-                        color: submitDone ? '#ffffff' : '#0f172a', 
-                        border: '1px solid ' + (submitDone ? '#059669' : item.pastel.border), 
+                        background: submitDone ? '#059669' : (isSubmitLocked && !submitDone && (isPast || isPast11PM) ? '#fee2e2' : '#ffffff'), 
+                        color: submitDone ? '#ffffff' : (isSubmitLocked && !submitDone && (isPast || isPast11PM) ? '#dc2626' : '#0f172a'), 
+                        border: '1px solid ' + (submitDone ? '#059669' : (isSubmitLocked && !submitDone && (isPast || isPast11PM) ? '#fca5a5' : item.pastel.border)), 
                         padding: '0.35rem 0.5rem', 
                         borderRadius: 'var(--radius-sm)', 
                         fontSize: '0.75rem', 
@@ -414,18 +446,20 @@ export default function StudentDashboard() {
                         display: 'flex', 
                         alignItems: 'center', 
                         justifyContent: 'space-between', 
-                        cursor: isActive ? 'pointer' : 'not-allowed',
-                        opacity: isActive ? 1 : 0.85 
+                        cursor: (!isActive || isPast11PM) ? 'not-allowed' : 'pointer',
+                        opacity: (!isActive || isPast11PM) ? 0.85 : 1 
                       }} 
-                      onClick={() => isActive && toggleDailyHabit(dateStr, 'submitDone')}
+                      onClick={() => isActive && !isPast11PM && toggleDailyHabit(currentUser.id, dateStr, 'submitDone')}
                     >
-                      <span>📤 11:00 PM Subm...</span>
+                      <span>
+                        {submitDone ? '📤 11 PM Subm...' : (isSubmitLocked && (isPast || isPast11PM) ? '❌ 11 PM Missed' : '📤 11 PM Subm...')}
+                      </span>
                       <input 
                         type="checkbox" 
                         checked={submitDone} 
-                        disabled={!isActive}
+                        disabled={isSubmitLocked}
                         readOnly 
-                        style={{ accentColor: '#059669', cursor: isActive ? 'pointer' : 'not-allowed' }} 
+                        style={{ accentColor: '#059669', cursor: isSubmitLocked ? 'not-allowed' : 'pointer' }} 
                       />
                     </label>
 
@@ -438,6 +472,7 @@ export default function StudentDashboard() {
                 );
               })}
             </div>
+
 
 
             {/* BOTTOM METADATA & FOOTER ROW MATCHING PICTURE 2 */}
