@@ -1,3 +1,16 @@
+export const BATCHES = [
+  'Batch A - Aug 2026 (Fullstack & AI)',
+  'Batch B - Aug 2026 (VLSI & Embedded)',
+  'Batch C - Aug 2026 (Automotive & IoT)'
+];
+
+export const MILESTONE_BADGES = [
+  { id: 'badge-3', title: '🔥 3-Day Starter', description: 'Completed 3 consecutive days of Study & Submission!', reqStreak: 3, icon: '🔥', bg: '#fff7ed', text: '#c2410c' },
+  { id: 'badge-7', title: '🏆 7-Day Champion', description: 'Achieved a full 7-day uninterrupted streak!', reqStreak: 7, icon: '🏆', bg: '#fef3c7', text: '#b45309' },
+  { id: 'badge-30', title: '🌟 30-Day Master', description: 'Completed 30 consecutive days of habits & submissions!', reqStreak: 30, icon: '🌟', bg: '#f0fdf4', text: '#15803d' },
+  { id: 'badge-100', title: '🎖️ 100% Monthly Compliance', description: 'Maintained 100% habit compliance for the entire month!', reqStreak: 30, icon: '🎖️', bg: '#eff6ff', text: '#1d4ed8' }
+];
+
 export const INITIAL_USERS = [
   {
     id: 'user-barath',
@@ -7,8 +20,10 @@ export const INITIAL_USERS = [
     avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
     avatarBg: '#38bdf8',
     initials: 'BK',
-    roles: ['student', 'mentor'],
+    roles: ['student', 'mentor', 'admin'],
     domain: 'FULLSTACK',
+    batch: 'Batch A - Aug 2026 (Fullstack & AI)',
+    mentorBatches: ['Batch A - Aug 2026 (Fullstack & AI)', 'Batch B - Aug 2026 (VLSI & Embedded)', 'Batch C - Aug 2026 (Automotive & IoT)'],
     bootcampId: 'bootcamp-1',
     bio: 'Dual-role mentor & lead student building fullstack AI platforms.'
   },
@@ -22,6 +37,7 @@ export const INITIAL_USERS = [
     initials: 'AB',
     roles: ['student'],
     domain: 'VLSI',
+    batch: 'Batch B - Aug 2026 (VLSI & Embedded)',
     bootcampId: 'bootcamp-2',
     bio: 'Embedded AI systems & TinyML builder.'
   },
@@ -35,6 +51,7 @@ export const INITIAL_USERS = [
     initials: 'SK',
     roles: ['student'],
     domain: 'AUTOMOTIVE',
+    batch: 'Batch C - Aug 2026 (Automotive & IoT)',
     bootcampId: 'bootcamp-1',
     bio: 'Automotive systems & React developer.'
   },
@@ -48,6 +65,7 @@ export const INITIAL_USERS = [
     initials: 'GT',
     roles: ['student'],
     domain: 'UIUX',
+    batch: 'Batch A - Aug 2026 (Fullstack & AI)',
     bootcampId: 'bootcamp-1',
     bio: 'UI/UX design & machine learning practitioner.'
   },
@@ -61,6 +79,7 @@ export const INITIAL_USERS = [
     initials: 'AK',
     roles: ['student'],
     domain: 'EDGEAI',
+    batch: 'Batch B - Aug 2026 (VLSI & Embedded)',
     bootcampId: 'bootcamp-2',
     bio: 'Edge AI hardware researcher.'
   },
@@ -74,6 +93,7 @@ export const INITIAL_USERS = [
     initials: 'NV',
     roles: ['student'],
     domain: 'EDGEAI',
+    batch: 'Batch A - Aug 2026 (Fullstack & AI)',
     bootcampId: 'bootcamp-1',
     bio: 'Edge AI & neural net practitioner.'
   },
@@ -87,8 +107,9 @@ export const INITIAL_USERS = [
     initials: 'KN',
     roles: ['student'],
     domain: 'FULLSTACK',
+    batch: 'Batch C - Aug 2026 (Automotive & IoT)',
     bootcampId: 'bootcamp-1',
-    bio: 'Fullstack web developer.'
+    bio: 'Fullstack AI & React developer.'
   }
 ];
 

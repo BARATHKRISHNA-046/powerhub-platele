@@ -29,8 +29,12 @@ export default function StudentDashboard() {
     currentUser, users, teams, submissions, skillRatings, announcements, 
     googleMeetConfig, googleDriveUrl, googleClassroomUrl, scheduleMonths, 
     dailyHabitStates, selectedScheduleMonth, setSelectedScheduleMonth, 
-    domainRoadmaps, toggleDailyHabit, getStudentHabitRecord, calculateStudentScore, submitWork 
+    domainRoadmaps, toggleDailyHabit, getStudentHabitRecord, calculateStudentScore, submitWork,
+    mentorFeedbacks, calculateStudentStreak, milestoneBadges 
   } = useApp();
+
+  const myStreak = calculateStudentStreak ? calculateStudentStreak(currentUser.id) : 0;
+
 
   const [githubUrl, setGithubUrl] = useState('');
   const [imageAttachment, setImageAttachment] = useState('');
@@ -243,8 +247,63 @@ export default function StudentDashboard() {
 
 
         <>
+          {/* STREAK & MILESTONE BADGES CARD */}
+          <div className="card" style={{ background: 'linear-gradient(135deg, #fff7ed, #ffedd5)', border: '1.5px solid #fed7aa', borderRadius: '20px', padding: '1.5rem', marginBottom: '1.5rem', boxShadow: '0 8px 24px rgba(234,88,12,0.08)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: '#ea580c', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(234,88,12,0.3)' }}>
+                  <Flame size={28} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '1.25rem', fontWeight: '800', fontFamily: 'var(--font-heading)', color: '#9a3412' }}>
+                    Active Habit Streak: <span style={{ color: '#ea580c' }}>🔥 {myStreak} Days</span>
+                  </h3>
+                  <p style={{ fontSize: '0.82rem', color: '#c2410c' }}>
+                    Consecutive uninterrupted days with 7 PM Study & 11 PM Submission completed. (Resets to 0 on Missed day)
+                  </p>
+                </div>
+              </div>
+
+              <span style={{ background: '#ea580c', color: '#ffffff', padding: '0.45rem 1rem', borderRadius: '9999px', fontSize: '0.85rem', fontWeight: '800', boxShadow: '0 4px 12px rgba(234,88,12,0.25)' }}>
+                🔥 {myStreak} Day Streak
+              </span>
+            </div>
+
+            {/* UNLOCKED MILESTONE BADGES GRID */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.85rem' }}>
+              {(milestoneBadges || []).map(badge => {
+                const isUnlocked = myStreak >= badge.reqStreak;
+                return (
+                  <div 
+                    key={badge.id}
+                    style={{
+                      background: isUnlocked ? badge.bg : '#ffffff',
+                      border: isUnlocked ? `1.5px solid ${badge.text}` : '1px dashed #cbd5e1',
+                      borderRadius: '12px',
+                      padding: '0.75rem 0.85rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.65rem',
+                      opacity: isUnlocked ? 1 : 0.6,
+                      filter: isUnlocked ? 'none' : 'grayscale(80%)'
+                    }}
+                  >
+                    <span style={{ fontSize: '1.5rem' }}>{badge.icon}</span>
+                    <div>
+                      <div style={{ fontSize: '0.85rem', fontWeight: '800', color: isUnlocked ? badge.text : '#64748b' }}>{badge.title}</div>
+                      <div style={{ fontSize: '0.7rem', color: isUnlocked ? badge.text : '#94a3b8' }}>
+                        {isUnlocked ? 'Unlocked 🏆' : `Requires ${badge.reqStreak}-day streak`}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
           {/* ROW 1: DAILY HABIT & SUBMISSION CALENDAR MATCHING PICTURE 2 LAYOUT & THEME */}
           <div className="card" style={{ borderColor: '#bfdbfe', borderWidth: '1.5px', background: '#ffffff', borderRadius: '20px', boxShadow: '0 10px 28px rgba(37,99,235,0.06)', padding: '1.75rem' }}>
+
             {/* TOP HEADER MATCHING PICTURE 2 */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -468,10 +527,30 @@ export default function StudentDashboard() {
                         {badgeLabel}
                       </span>
                     </div>
+
+                    {/* MENTOR FEEDBACK BANNER ON CARD */}
+                    {mentorFeedbacks && mentorFeedbacks[`${currentUser.id}_${dateStr}`] && (
+                      <div 
+                        title={`Mentor Feedback: "${mentorFeedbacks[`${currentUser.id}_${dateStr}`]}"`}
+                        style={{
+                          background: '#eff6ff',
+                          border: '1px solid #bfdbfe',
+                          borderRadius: '6px',
+                          padding: '0.35rem 0.45rem',
+                          fontSize: '0.68rem',
+                          color: '#1d4ed8',
+                          fontWeight: '700',
+                          lineHeight: '1.25'
+                        }}
+                      >
+                        💬 <b>Mentor:</b> "{mentorFeedbacks[`${currentUser.id}_${dateStr}`]}"
+                      </div>
+                    )}
                   </div>
                 );
               })}
             </div>
+
 
 
 

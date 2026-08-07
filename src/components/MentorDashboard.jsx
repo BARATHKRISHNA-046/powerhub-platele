@@ -13,10 +13,11 @@ export default function MentorDashboard() {
   const { 
     currentUser, users, teams, submissions, announcements, auditLogs, 
     aiTeamAvatars, googleMeetConfig, googleDriveUrl, googleClassroomUrl, 
-    dailyHabitStates, getStudentHabitRecord,
+    dailyHabitStates, getStudentHabitRecord, mentorFeedbacks, saveMentorFeedback, batches,
     updateGoogleSuiteConfig, reviewSubmission, createTeam, deleteTeam, 
     postAnnouncement, deleteAnnouncement, overrideScore 
   } = useApp();
+
 
   const [activeSection, setActiveSection] = useState('monitoring');
   const [searchQuery, setSearchQuery] = useState('');
@@ -67,13 +68,25 @@ export default function MentorDashboard() {
 
   const pendingQueue = submissions.filter(s => s.status === 'pending');
 
+  const isAdmin = currentUser?.roles?.includes('admin');
+  const allowedBatches = currentUser?.mentorBatches || batches || [];
+
+  // Filter students based on Batch Access Control (Admin sees all; Mentor sees assigned batches)
+  const accessibleUsers = useMemo(() => {
+    if (isAdmin) return users;
+    return users.filter(u => !u.batch || allowedBatches.includes(u.batch));
+  }, [users, isAdmin, allowedBatches]);
+
+  // Feedback Modal State
+  const [feedbackModal, setFeedbackModal] = useState({ open: false, studentId: '', studentName: '', dateStr: '', text: '' });
+
   // STREAK CALCULATOR
   const studentStreaks = useMemo(() => {
     const streaks = {};
     const calendarDays = generateCalendarDays();
     const pastAndTodayDays = calendarDays.filter(d => d.dateStr <= todayStr).reverse();
 
-    users.forEach(student => {
+    accessibleUsers.forEach(student => {
       let streak = 0;
       for (const day of pastAndTodayDays) {
         const habit = getStudentHabitRecord(student.id, day.dateStr);
@@ -87,7 +100,8 @@ export default function MentorDashboard() {
     });
 
     return streaks;
-  }, [users, dailyHabitStates, todayStr]);
+  }, [accessibleUsers, dailyHabitStates, todayStr]);
+
 
   // ALL MONITORING RECORDS COMPUTATION
   const allMonitoringRecords = useMemo(() => {
@@ -98,9 +112,10 @@ export default function MentorDashboard() {
     const relevantDays = calendarDays.filter(d => d.dateStr <= todayStr).reverse();
 
     relevantDays.forEach(day => {
-      users.forEach(student => {
+      accessibleUsers.forEach(student => {
         const habit = getStudentHabitRecord(student.id, day.dateStr);
-        
+        const feedback = mentorFeedbacks ? mentorFeedbacks[`${student.id}_${day.dateStr}`] : '';
+
         let status = 'Pending';
         if (habit.submitDone) {
           status = 'Submitted';
@@ -113,8 +128,9 @@ export default function MentorDashboard() {
         records.push({
           studentId: student.id,
           studentName: student.name,
-          avatarUrl: student.profilePicUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${student.name}`,
+          avatarUrl: student.profilePicUrl || student.profilePic || student.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${student.name}`,
           domain: student.domain || 'FULLSTACK',
+          batch: student.batch || 'Batch A',
           dateStr: day.dateStr,
           monthName: day.monthName,
           dayShort: day.day,
@@ -122,13 +138,15 @@ export default function MentorDashboard() {
           submitDone: habit.submitDone,
           isMissed: habit.isMissed,
           status,
-          streak: studentStreaks[student.id] || 0
+          streak: studentStreaks[student.id] || 0,
+          feedback
         });
       });
     });
 
     return records;
-  }, [users, dailyHabitStates, todayStr, isPast11PM, studentStreaks]);
+  }, [accessibleUsers, dailyHabitStates, todayStr, isPast11PM, studentStreaks, mentorFeedbacks]);
+
 
   // FILTERED RECORDS
   const filteredRecords = useMemo(() => {
@@ -492,13 +510,14 @@ export default function MentorDashboard() {
                     <th style={{ padding: '1rem 1rem' }}>7 PM Study</th>
                     <th style={{ padding: '1rem 1rem' }}>11 PM Submission</th>
                     <th style={{ padding: '1rem 1rem' }}>Overall Status</th>
-                    <th style={{ padding: '1rem 1.25rem' }}>Streak</th>
+                    <th style={{ padding: '1rem 1rem' }}>Streak</th>
+                    <th style={{ padding: '1rem 1.25rem' }}>Mentor Feedback</th>
                   </tr>
                 </thead>
                 <tbody>
                   {paginatedRecords.length === 0 ? (
                     <tr>
-                      <td colSpan="6" style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>
+                      <td colSpan="7" style={{ padding: '3rem', textAlign: 'center', color: '#64748b' }}>
                         No records match the current filter criteria.
                       </td>
                     </tr>
@@ -571,10 +590,36 @@ export default function MentorDashboard() {
                         </td>
 
                         {/* Streak */}
-                        <td style={{ padding: '0.85rem 1.25rem' }}>
+                        <td style={{ padding: '0.85rem 1rem' }}>
                           <span style={{ background: '#fff7ed', border: '1px solid #ffedd5', color: '#c2410c', padding: '0.25rem 0.65rem', borderRadius: '8px', fontSize: '0.78rem', fontWeight: '800', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
                             <Flame size={14} style={{ color: '#ea580c' }} /> {r.streak} Days
                           </span>
+                        </td>
+
+                        {/* Mentor Feedback */}
+                        <td style={{ padding: '0.85rem 1.25rem' }}>
+                          {r.feedback ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <span style={{ fontSize: '0.75rem', color: '#1d4ed8', fontWeight: '700', fontStyle: 'italic', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.feedback}>
+                                "{r.feedback}"
+                              </span>
+                              <button 
+                                onClick={() => setFeedbackModal({ open: true, studentId: r.studentId, studentName: r.studentName, dateStr: r.dateStr, text: r.feedback })}
+                                className="btn-outline"
+                                style={{ padding: '0.2rem 0.45rem', fontSize: '0.7rem' }}
+                              >
+                                Edit
+                              </button>
+                            </div>
+                          ) : (
+                            <button 
+                              onClick={() => setFeedbackModal({ open: true, studentId: r.studentId, studentName: r.studentName, dateStr: r.dateStr, text: '' })}
+                              className="btn-outline"
+                              style={{ padding: '0.25rem 0.55rem', fontSize: '0.72rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
+                            >
+                              <MessageSquare size={13} /> Add Feedback
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))
@@ -582,6 +627,7 @@ export default function MentorDashboard() {
                 </tbody>
               </table>
             </div>
+
 
             {/* PAGINATION CONTROLS */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem 1.25rem', background: '#f8fafc', borderTop: '1px solid #e2e8f0', flexWrap: 'wrap', gap: '1rem' }}>
@@ -972,6 +1018,51 @@ export default function MentorDashboard() {
           </div>
         </div>
       )}
+
+      {/* MENTOR FEEDBACK ON SUBMISSION MODAL */}
+      {feedbackModal.open && (
+        <div className="modal-overlay" onClick={() => setFeedbackModal({ open: false, studentId: '', studentName: '', dateStr: '', text: '' })}>
+          <div className="card" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px', width: '100%', borderRadius: '16px' }}>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: '800', fontFamily: 'var(--font-heading)', color: '#0f172a', marginBottom: '0.35rem' }}>
+              💬 Mentor Feedback on Submission
+            </h3>
+            <p style={{ fontSize: '0.82rem', color: '#64748b', marginBottom: '1rem' }}>
+              Add direct feedback for <b>{feedbackModal.studentName}</b> on <b>{feedbackModal.dateStr}</b>. This will display on the student's calendar card.
+            </p>
+
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              saveMentorFeedback(feedbackModal.studentId, feedbackModal.dateStr, feedbackModal.text);
+              setFeedbackModal({ open: false, studentId: '', studentName: '', dateStr: '', text: '' });
+              alert(`Mentor feedback saved cleanly for ${feedbackModal.studentName}!`);
+            }} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '800', textTransform: 'uppercase', color: '#475569', marginBottom: '0.35rem' }}>
+                  Feedback / Comment Notes
+                </label>
+                <textarea 
+                  rows="4" 
+                  value={feedbackModal.text} 
+                  onChange={e => setFeedbackModal(prev => ({ ...prev, text: e.target.value }))}
+                  placeholder="e.g. Excellent work on the 11 PM submission! Clean React architecture..." 
+                  required 
+                  style={{ width: '100%', padding: '0.65rem', borderRadius: '10px', border: '1.5px solid var(--border-medium)', fontSize: '0.88rem' }} 
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                <button type="button" onClick={() => setFeedbackModal({ open: false, studentId: '', studentName: '', dateStr: '', text: '' })} className="btn-outline">
+                  Cancel
+                </button>
+                <button type="submit" className="btn-primary" style={{ background: '#2563eb' }}>
+                  Save Feedback
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

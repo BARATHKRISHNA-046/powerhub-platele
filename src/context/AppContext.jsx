@@ -16,8 +16,12 @@ import {
   AI_TEAM_AVATARS,
   EMOJI_COMBOS,
   DOMAIN_ROADMAPS,
-  getISTDateDetails
+  getISTDateDetails,
+  generateCalendarDays,
+  BATCHES,
+  MILESTONE_BADGES
 } from '../data/mockData';
+
 
 
 const AppContext = createContext();
@@ -393,6 +397,41 @@ const CLOUD_SYNC_ENDPOINT = 'https://jsonblob.com/api/jsonBlob/019fd29a-5c27-7bf
     return true;
   };
 
+  const [mentorFeedbacks, setMentorFeedbacks] = useState(() => {
+
+    if (savedDb && savedDb.mentorFeedbacks) return savedDb.mentorFeedbacks;
+    return {
+      'user-barath_2026-08-07': 'Great job completing 7 PM study & 11 PM submission on time!'
+    };
+  });
+
+  const saveMentorFeedback = (studentId, dateStr, feedbackText) => {
+    const key = `${studentId}_${dateStr}`;
+    setMentorFeedbacks(prev => ({
+      ...prev,
+      [key]: feedbackText
+    }));
+    console.log(`[Mentor Feedback Saved] ${key}: "${feedbackText}"`);
+  };
+
+  const calculateStudentStreak = (studentId) => {
+    const { todayStr } = getISTDateDetails();
+    const calendarDays = generateCalendarDays();
+    const pastAndTodayDays = calendarDays.filter(d => d.dateStr <= todayStr).reverse();
+
+    let streak = 0;
+    for (const day of pastAndTodayDays) {
+      const habit = getStudentHabitRecord(studentId, day.dateStr);
+      if (habit.studyDone && habit.submitDone) {
+        streak++;
+      } else {
+        break; // Streak reset on missed or incomplete day
+      }
+    }
+    return streak;
+  };
+
+
 
 
   const updateGoogleSuiteConfig = ({ topic, timing, meetUrl, driveUrl, classroomUrl }) => {
@@ -600,6 +639,12 @@ const CLOUD_SYNC_ENDPOINT = 'https://jsonblob.com/api/jsonBlob/019fd29a-5c27-7bf
       updateUserProfilePic,
       toggleDailyHabit,
       getStudentHabitRecord,
+      mentorFeedbacks,
+      saveMentorFeedback,
+      calculateStudentStreak,
+      batches: BATCHES,
+      milestoneBadges: MILESTONE_BADGES,
+
 
 
       updateGoogleSuiteConfig,
