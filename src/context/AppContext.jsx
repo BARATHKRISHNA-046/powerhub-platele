@@ -446,44 +446,162 @@ const CLOUD_SYNC_ENDPOINT = 'https://jsonblob.com/api/jsonBlob/019fd29a-5c27-7bf
     if (classroomUrl !== undefined) setGoogleClassroomUrl(classroomUrl);
   };
 
-  const calculateStudentScore = (studentId) => {
+  // Yesterday's Rank Snapshots for Rank Change Indicators (▲, ▼, —)
+  const [leaderboardHistory, setLeaderboardHistory] = useState(() => {
+    if (savedDb && savedDb.leaderboardHistory) return savedDb.leaderboardHistory;
+    return {
+      'user-barath': 1,
+      'user-shankar': 2,
+      'user-abinav': 3,
+      'user-gowtham': 4,
+      'user-akshaya': 5,
+      'user-navin': 6,
+      'user-kanika': 7
+    };
+  });
+
+  const calculateStudentScore = (studentId, timeRange = 'ALL') => {
     const studentSubs = submissions.filter(s => s.studentId === studentId);
     const studentTeams = teams.filter(t => t.memberIds && t.memberIds.includes(studentId));
     const leadTeams = teams.filter(t => t.leadStudentId === studentId);
+    const streak = calculateStudentStreak ? calculateStudentStreak(studentId) : 0;
 
-    let submissionPts = 0;
+    let baseSubmissionPts = 0;
+    let onTimeBonusPts = 0;
+    let earlyBonusPts = 0;
     let projectPts = 0;
     let firstSubmitterPts = 0;
     let penaltyPts = 0;
+    let missedDeductionsPts = 0;
 
-    studentSubs.forEach(sub => {
+    const pointsLedger = [];
+
+    let onTimeCount = 0;
+    let totalSubmissionsCount = studentSubs.length;
+
+    studentSubs.forEach((sub, idx) => {
       if (sub.status === 'approved' || sub.status === 'pending') {
-        submissionPts += 10;
+        baseSubmissionPts += 10;
+        pointsLedger.push({
+          id: `leg-sub-${sub.id}`,
+          date: sub.submittedAt ? sub.submittedAt.split('T')[0] : '2026-08-07',
+          reason: `Submission Approval (${sub.roundName || 'Daily Habit'})`,
+          amount: '+10 pts',
+          type: 'earn'
+        });
+
+        if (sub.isOnTime !== false) {
+          onTimeCount++;
+          onTimeBonusPts += 5;
+          pointsLedger.push({
+            id: `leg-ontime-${sub.id}`,
+            date: sub.submittedAt ? sub.submittedAt.split('T')[0] : '2026-08-07',
+            reason: 'On-Time Submission Bonus',
+            amount: '+5 pts',
+            type: 'earn'
+          });
+        }
+
+        // Early submission bonus (+1 pt if submitted >1hr before 11 PM cutoff, i.e. before 22:00 IST)
+        if (sub.submittedAt) {
+          const subDate = new Date(sub.submittedAt);
+          if (subDate.getHours() < 22) {
+            earlyBonusPts += 1;
+            pointsLedger.push({
+              id: `leg-early-${sub.id}`,
+              date: sub.submittedAt.split('T')[0],
+              reason: 'Early Submission Bonus (>1hr before 11 PM IST)',
+              amount: '+1 pt',
+              type: 'earn'
+            });
+          }
+        }
+
         if (sub.isProject) projectPts += 20;
         if (sub.isFirstSubmitter) firstSubmitterPts += 10;
       } else if (sub.status === 'flagged') {
         penaltyPts += 15;
+        pointsLedger.push({
+          id: `leg-flagged-${sub.id}`,
+          date: sub.submittedAt ? sub.submittedAt.split('T')[0] : '2026-08-07',
+          reason: 'Flagged Submission Penalty',
+          amount: '-15 pts',
+          type: 'deduct'
+        });
+      }
+    });
+
+    // Streak Bonus Points
+    let streakBonusPts = 0;
+    if (streak >= 7) {
+      streakBonusPts = 10;
+      pointsLedger.push({
+        id: `leg-streak-${studentId}`,
+        date: getISTDateDetails().todayStr,
+        reason: `7-Day Active Streak Bonus (${streak} Days)`,
+        amount: '+10 pts',
+        type: 'earn'
+      });
+    } else if (streak >= 3) {
+      streakBonusPts = 5;
+      pointsLedger.push({
+        id: `leg-streak-${studentId}`,
+        date: getISTDateDetails().todayStr,
+        reason: `3-Day Active Streak Bonus (${streak} Days)`,
+        amount: '+5 pts',
+        type: 'earn'
+      });
+    }
+
+    // Check missed days deductions (-2 pts per missed day)
+    const calendarDays = generateCalendarDays();
+    const pastDays = calendarDays.filter(d => d.dateStr < getISTDateDetails().todayStr);
+    pastDays.forEach(day => {
+      const habit = getStudentHabitRecord(studentId, day.dateStr);
+      if (habit.isMissed) {
+        missedDeductionsPts += 2;
+        pointsLedger.push({
+          id: `leg-missed-${day.dateStr}`,
+          date: day.dateStr,
+          reason: `Deduction: Missed Submission (${day.dateLabel})`,
+          amount: '-2 pts',
+          type: 'deduct'
+        });
       }
     });
 
     const teamPts = studentTeams.length * 5;
     const leadershipPts = leadTeams.length * 15;
 
-    const totalScore = Math.max(0, (submissionPts + teamPts + leadershipPts + projectPts + firstSubmitterPts) - penaltyPts);
+    const totalScore = Math.max(0, (baseSubmissionPts + onTimeBonusPts + earlyBonusPts + streakBonusPts + teamPts + leadershipPts + projectPts + firstSubmitterPts) - (penaltyPts + missedDeductionsPts));
+
+    const onTimePercentage = totalSubmissionsCount > 0 ? Math.round((onTimeCount / totalSubmissionsCount) * 100) : 0;
+    const onTimeFraction = `${onTimeCount}/${totalSubmissionsCount} On-Time (${onTimePercentage}%)`;
 
     return {
-      submissionPts,
+      baseSubmissionPts,
+      onTimeBonusPts,
+      earlyBonusPts,
+      streakBonusPts,
       teamPts,
       leadershipPts,
       projectPts,
       firstSubmitterPts,
       penaltyPts,
+      missedDeductionsPts,
       totalScore,
+      onTimeCount,
+      totalSubmissionsCount,
+      onTimeFraction,
+      onTimePercentage,
+      pointsLedger,
       submissionCount: studentSubs.length,
       teamCount: studentTeams.length,
-      leadCount: leadTeams.length
+      leadCount: leadTeams.length,
+      streak
     };
   };
+
 
   const submitWork = ({ githubUrl, imageAttachment, videoAttachmentName, roundName, isProject }) => {
     const githubRegex = /^https:\/\/(www\.)?github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/?$/;
@@ -644,6 +762,8 @@ const CLOUD_SYNC_ENDPOINT = 'https://jsonblob.com/api/jsonBlob/019fd29a-5c27-7bf
       calculateStudentStreak,
       batches: BATCHES,
       milestoneBadges: MILESTONE_BADGES,
+      leaderboardHistory,
+
 
 
 

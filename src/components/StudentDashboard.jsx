@@ -30,13 +30,18 @@ export default function StudentDashboard() {
     googleMeetConfig, googleDriveUrl, googleClassroomUrl, scheduleMonths, 
     dailyHabitStates, selectedScheduleMonth, setSelectedScheduleMonth, 
     domainRoadmaps, toggleDailyHabit, getStudentHabitRecord, calculateStudentScore, submitWork,
-    mentorFeedbacks, calculateStudentStreak, milestoneBadges 
+    mentorFeedbacks, calculateStudentStreak, milestoneBadges, leaderboardHistory 
   } = useApp();
 
   const myStreak = calculateStudentStreak ? calculateStudentStreak(currentUser.id) : 0;
 
+  // Leaderboard Filters & Modal State
+  const [cohortFilter, setCohortFilter] = useState('ALL');
+  const [timeRangeToggle, setTimeRangeToggle] = useState('ALL');
+  const [studentModal, setStudentModal] = useState({ open: false, student: null });
 
   const [githubUrl, setGithubUrl] = useState('');
+
   const [imageAttachment, setImageAttachment] = useState('');
   const [isProject, setIsProject] = useState(true);
   const [mediaFile, setMediaFile] = useState(null);
@@ -137,16 +142,56 @@ export default function StudentDashboard() {
     }
   };
 
-  const globalLeaderboard = users.map(user => {
-    const scoreObj = calculateStudentScore(user.id);
+  const filteredLeaderboardUsers = React.useMemo(() => {
+    let list = users;
+    if (cohortFilter !== 'ALL') {
+      list = list.filter(u => 
+        (u.domain || '').toUpperCase() === cohortFilter.toUpperCase() || 
+        (u.batch || '').toUpperCase().includes(cohortFilter.toUpperCase())
+      );
+    }
+    return list.map(user => {
+      const scoreObj = calculateStudentScore(user.id, timeRangeToggle);
+      return {
+        ...user,
+        ...scoreObj
+      };
+    }).sort((a, b) => b.totalScore - a.totalScore);
+  }, [users, cohortFilter, timeRangeToggle, calculateStudentScore]);
 
-    return {
-      ...user,
-      ...scoreObj
-    };
-  }).sort((a, b) => b.totalScore - a.totalScore);
+  const leaderboardWithRanks = React.useMemo(() => {
+    return filteredLeaderboardUsers.map((student, idx) => {
+      const todayRank = idx + 1;
+      const yesterdayRank = (leaderboardHistory && leaderboardHistory[student.id]) || todayRank;
 
-  const myScore = calculateStudentScore(currentUser.id);
+      let rankIndicator = '—';
+      let rankColor = '#94a3b8';
+      if (todayRank < yesterdayRank) {
+        rankIndicator = '▲';
+        rankColor = '#16a34a';
+      } else if (todayRank > yesterdayRank) {
+        rankIndicator = '▼';
+        rankColor = '#dc2626';
+      }
+
+      return {
+        ...student,
+        todayRank,
+        yesterdayRank,
+        rankIndicator,
+        rankColor
+      };
+    });
+  }, [filteredLeaderboardUsers, leaderboardHistory]);
+
+  const myScore = calculateStudentScore(currentUser.id, timeRangeToggle);
+  const myRankItem = leaderboardWithRanks.find(s => s.id === currentUser.id);
+  const myRank = myRankItem ? myRankItem.todayRank : 1;
+  const nextRankItem = myRank > 1 ? leaderboardWithRanks[myRank - 2] : null;
+  const ptsGapToNext = nextRankItem ? (nextRankItem.totalScore - (myScore.totalScore || 0)) + 1 : 0;
+
+  const globalLeaderboard = leaderboardWithRanks;
+
   const mySubmissions = submissions.filter(s => s.studentId === currentUser.id);
   const myTeam = teams.find(t => t.memberIds.includes(currentUser.id));
 
@@ -569,11 +614,89 @@ export default function StudentDashboard() {
           </div>
 
 
+          {/* MY SCOREBOARD ENHANCEMENTS CARD */}
+          <div className="card" style={{ background: 'linear-gradient(135deg, #eff6ff, #dbeafe)', border: '1.5px solid #bfdbfe', borderRadius: '20px', padding: '1.5rem', marginBottom: '1.5rem', boxShadow: '0 8px 24px rgba(37,99,235,0.08)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                <div style={{ width: '52px', height: '52px', borderRadius: '16px', background: '#2563eb', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 14px rgba(37,99,235,0.3)' }}>
+                  <Award size={30} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '1.3rem', fontWeight: '800', fontFamily: 'var(--font-heading)', color: '#0f172a' }}>
+                    My Scoreboard Breakdown: <span style={{ color: '#2563eb' }}>{myScore.totalScore} pts</span>
+                  </h3>
+                  {/* PROGRESS INDICATOR GAP TO NEXT RANK */}
+                  <div style={{ fontSize: '0.85rem', fontWeight: '800', color: myRank === 1 ? '#b45309' : '#1d4ed8', marginTop: '0.2rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    {myRank === 1 ? (
+                      <span>🥇 Rank #1 Leader! (Maintaining highest score overall)</span>
+                    ) : (
+                      <span>🎯 <b>{ptsGapToNext} more pts</b> to reach Rank #{myRank - 1} ({nextRankItem?.name || 'Next Rank'})</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                <span style={{ background: '#2563eb', color: '#ffffff', padding: '0.45rem 1rem', borderRadius: '9999px', fontSize: '0.88rem', fontWeight: '900', boxShadow: '0 4px 12px rgba(37,99,235,0.25)' }}>
+                  Current Rank: #{myRank}
+                </span>
+              </div>
+            </div>
+
+            {/* DETAILED POINTS BREAKDOWN GRID */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.85rem', marginBottom: '1.25rem' }}>
+              <div style={{ background: '#ffffff', border: '1px solid #bfdbfe', borderRadius: '12px', padding: '0.75rem 0.85rem' }}>
+                <div style={{ fontSize: '0.72rem', fontWeight: '800', color: '#64748b', textTransform: 'uppercase' }}>Base Submissions</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: '900', color: '#1e40af' }}>+{myScore.baseSubmissionPts || 0} pts</div>
+              </div>
+
+              <div style={{ background: '#ffffff', border: '1px solid #bfdbfe', borderRadius: '12px', padding: '0.75rem 0.85rem' }}>
+                <div style={{ fontSize: '0.72rem', fontWeight: '800', color: '#64748b', textTransform: 'uppercase' }}>On-Time Bonus</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: '900', color: '#16a34a' }}>+{myScore.onTimeBonusPts || 0} pts</div>
+              </div>
+
+              <div style={{ background: '#ffffff', border: '1px solid #bfdbfe', borderRadius: '12px', padding: '0.75rem 0.85rem' }}>
+                <div style={{ fontSize: '0.72rem', fontWeight: '800', color: '#64748b', textTransform: 'uppercase' }}>Early Bonus (&gt;1hr)</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: '900', color: '#0284c7' }}>+{myScore.earlyBonusPts || 0} pts</div>
+              </div>
+
+              <div style={{ background: '#ffffff', border: '1px solid #bfdbfe', borderRadius: '12px', padding: '0.75rem 0.85rem' }}>
+                <div style={{ fontSize: '0.72rem', fontWeight: '800', color: '#64748b', textTransform: 'uppercase' }}>Streak Bonus</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: '900', color: '#ea580c' }}>+{myScore.streakBonusPts || 0} pts</div>
+              </div>
+
+              <div style={{ background: '#ffffff', border: '1px solid #fecaca', borderRadius: '12px', padding: '0.75rem 0.85rem' }}>
+                <div style={{ fontSize: '0.72rem', fontWeight: '800', color: '#dc2626', textTransform: 'uppercase' }}>Missed Deductions</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: '900', color: '#dc2626' }}>-{myScore.missedDeductionsPts || 0} pts</div>
+              </div>
+            </div>
+
+            {/* AUDIT LOG TRANSACTIONS LEDGER VIEW */}
+            <div style={{ background: '#ffffff', border: '1px solid #bfdbfe', borderRadius: '14px', padding: '1rem' }}>
+              <h4 style={{ fontSize: '0.85rem', fontWeight: '800', color: '#0f172a', marginBottom: '0.65rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                📜 Points Ledger Audit History ({myScore.pointsLedger?.length || 0} Transactions)
+              </h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', maxHeight: '140px', overflowY: 'auto' }}>
+                {(myScore.pointsLedger || []).map((item) => (
+                  <div key={item.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.78rem', padding: '0.35rem 0.55rem', background: item.type === 'deduct' ? '#fef2f2' : '#f8fafc', borderRadius: '8px', border: '1px solid ' + (item.type === 'deduct' ? '#fecaca' : '#e2e8f0') }}>
+                    <span style={{ fontWeight: '700', color: '#334155' }}>
+                      {item.date}: {item.reason}
+                    </span>
+                    <span style={{ fontWeight: '900', color: item.type === 'deduct' ? '#dc2626' : '#16a34a' }}>
+                      {item.amount}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
           {/* ROW 2: 3-COLUMN MIDDLE GRID MATCHING PICTURE 2 THEME & LAYOUT */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '1.25rem' }}>
             
             {/* CARD 1: LIVE GOOGLE MEET */}
             <div className="card" style={{ borderColor: '#bbf7d0', borderWidth: '1.5px', background: '#ffffff', borderRadius: '20px', boxShadow: '0 10px 28px rgba(16,185,129,0.06)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '1.5rem' }}>
+
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', marginBottom: '0.75rem' }}>
                   <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: '#dcfce7', border: '1px solid #bbf7d0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#059669' }}>
@@ -701,60 +824,198 @@ export default function StudentDashboard() {
           </div>
 
 
-          {/* ROW 3: LEADERBOARD */}
-          <div className="card" style={{ borderColor: '#10b981', borderWidth: '1.5px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Trophy size={22} style={{ color: '#f59e0b' }} />
-                <h2 style={{ fontSize: '1.35rem', fontWeight: '800' }}>Leaderboard</h2>
+          {/* ROW 3: LEADERBOARD ENHANCEMENTS */}
+          <div className="card" style={{ borderColor: '#10b981', borderWidth: '1.5px', borderRadius: '20px', padding: '1.5rem', background: '#ffffff', boxShadow: '0 10px 28px rgba(16,185,129,0.06)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                <Trophy size={26} style={{ color: '#f59e0b' }} />
+                <div>
+                  <h2 style={{ fontSize: '1.35rem', fontWeight: '800', fontFamily: 'var(--font-heading)', color: '#0f172a' }}>Global Student Leaderboard</h2>
+                  <p style={{ fontSize: '0.8rem', color: '#64748b' }}>Click any student row to view submission history, streak & score breakdown</p>
+                </div>
               </div>
-              <span style={{ background: '#fffbeb', border: '1px solid #fde68a', color: '#b45309', padding: '0.35rem 0.85rem', borderRadius: '9999px', fontSize: '0.8rem', fontWeight: '800' }}>((•)) LIVE</span>
+
+              {/* FILTER CONTROLS: COHORT DROPDOWN & TIME RANGE TOGGLE */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                {/* Cohort Dropdown */}
+                <select
+                  value={cohortFilter}
+                  onChange={e => setCohortFilter(e.target.value)}
+                  style={{
+                    background: '#ffffff',
+                    border: '1.5px solid #cbd5e1',
+                    color: '#0f172a',
+                    padding: '0.45rem 0.85rem',
+                    borderRadius: '10px',
+                    fontSize: '0.82rem',
+                    fontWeight: '800',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value="ALL">All Cohorts</option>
+                  <option value="FULLSTACK">Fullstack & AI</option>
+                  <option value="VLSI">VLSI & Embedded</option>
+                  <option value="AUTOMOTIVE">Automotive & IoT</option>
+                  <option value="UIUX">UI/UX Design</option>
+                  <option value="EDGEAI">Edge AI</option>
+                </select>
+
+                {/* Time Range Toggle */}
+                <div style={{ background: '#f1f5f9', padding: '0.2rem', borderRadius: '10px', display: 'flex', gap: '0.2rem' }}>
+                  {['WEEK', 'MONTH', 'ALL'].map(range => (
+                    <button
+                      key={range}
+                      onClick={() => setTimeRangeToggle(range)}
+                      style={{
+                        padding: '0.35rem 0.75rem',
+                        fontSize: '0.78rem',
+                        fontWeight: '800',
+                        borderRadius: '8px',
+                        border: 'none',
+                        background: timeRangeToggle === range ? '#2563eb' : 'transparent',
+                        color: timeRangeToggle === range ? '#ffffff' : '#64748b',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      {range === 'WEEK' ? 'This Week' : range === 'MONTH' ? 'This Month' : 'All-Time'}
+                    </button>
+                  ))}
+                </div>
+
+                <span style={{ background: '#fffbeb', border: '1px solid #fde68a', color: '#b45309', padding: '0.35rem 0.85rem', borderRadius: '9999px', fontSize: '0.8rem', fontWeight: '800' }}>((•)) LIVE AUDITED</span>
+              </div>
             </div>
 
             <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+              <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 0.4rem', textAlign: 'left' }}>
                 <thead>
-                  <tr style={{ borderBottom: '2px solid var(--border-light)', fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                  <tr style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', borderBottom: '2px solid var(--border-light)' }}>
                     <th style={{ padding: '0.75rem' }}>RANK</th>
+                    <th style={{ padding: '0.75rem' }}>TREND</th>
                     <th style={{ padding: '0.75rem' }}>STUDENT</th>
-                    <th style={{ padding: '0.75rem' }}>TEAM IDENTITY</th>
+                    <th style={{ padding: '0.75rem' }}>COHORT / BATCH</th>
                     <th style={{ padding: '0.75rem' }}>SUBMISSIONS</th>
                     <th style={{ padding: '0.75rem', textAlign: 'right' }}>TOTAL SCORE</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {globalLeaderboard.map((student, idx) => (
-                    <tr key={student.id} style={{ borderBottom: '1px solid var(--border-light)', background: student.id === currentUser.id ? '#f0f9ff' : 'transparent' }}>
-                      <td style={{ padding: '0.85rem 0.75rem' }}>#{idx + 1}</td>
-                      <td style={{ padding: '0.85rem 0.75rem', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                        {student.profilePicUrl || student.profilePic || student.avatarUrl ? (
-                          <img 
-                            src={student.profilePicUrl || student.profilePic || student.avatarUrl} 
-                            alt={student.name} 
-                            onError={(e) => {
-                              e.currentTarget.onerror = null;
-                              e.currentTarget.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(student.name)}`;
-                            }}
-                            style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '1.5px solid #2563eb', flexShrink: 0 }} 
-                          />
-                        ) : (
-                          <div className="avatar-circle" style={{ width: '32px', height: '32px', backgroundColor: student.avatarBg || '#fb923c', fontSize: '0.8rem', flexShrink: 0 }}>
-                            {student.initials}
+                  {globalLeaderboard.map((student, idx) => {
+                    const rank = idx + 1;
+                    const isTop1 = rank === 1;
+                    const isTop2 = rank === 2;
+                    const isTop3 = rank === 3;
+
+                    // Distinct Highlighted Styles for Top 3
+                    let rowBg = student.id === currentUser.id ? '#eff6ff' : '#ffffff';
+                    let rowBorder = '1px solid #e2e8f0';
+                    let rankBadge = `#${rank}`;
+                    let rankBg = '#f1f5f9';
+                    let rankColor = '#475569';
+
+                    if (isTop1) {
+                      rowBg = 'linear-gradient(135deg, #fef9c3, #fef08a)';
+                      rowBorder = '2px solid #eab308';
+                      rankBadge = '🥇 #1';
+                      rankBg = '#eab308';
+                      rankColor = '#ffffff';
+                    } else if (isTop2) {
+                      rowBg = 'linear-gradient(135deg, #f1f5f9, #e2e8f0)';
+                      rowBorder = '2px solid #94a3b8';
+                      rankBadge = '🥈 #2';
+                      rankBg = '#64748b';
+                      rankColor = '#ffffff';
+                    } else if (isTop3) {
+                      rowBg = 'linear-gradient(135deg, #ffedd5, #fed7aa)';
+                      rowBorder = '2px solid #ea580c';
+                      rankBadge = '🥉 #3';
+                      rankBg = '#ea580c';
+                      rankColor = '#ffffff';
+                    }
+
+                    return (
+                      <tr 
+                        key={student.id} 
+                        onClick={() => setStudentModal({ open: true, student })}
+                        style={{ 
+                          background: rowBg, 
+                          border: rowBorder, 
+                          borderRadius: '12px',
+                          cursor: 'pointer',
+                          transition: 'transform 0.15s ease, box-shadow 0.15s ease'
+                        }}
+                        className="leaderboard-row-hover"
+                      >
+                        {/* Rank Badge */}
+                        <td style={{ padding: '0.85rem 0.75rem', borderRadius: '12px 0 0 12px' }}>
+                          <span style={{ background: rankBg, color: rankColor, padding: '0.35rem 0.65rem', borderRadius: '8px', fontSize: '0.82rem', fontWeight: '900' }}>
+                            {rankBadge}
+                          </span>
+                        </td>
+
+                        {/* Rank-Change Indicator ▲ ▼ — */}
+                        <td style={{ padding: '0.85rem 0.75rem', fontWeight: '900', fontSize: '0.95rem' }}>
+                          <span style={{ color: student.rankColor }} title={`Today: #${student.todayRank}, Yesterday: #${student.yesterdayRank}`}>
+                            {student.rankIndicator} {student.todayRank !== student.yesterdayRank ? Math.abs(student.yesterdayRank - student.todayRank) : ''}
+                          </span>
+                        </td>
+
+                        {/* Student Name & Avatar & Streak Badge */}
+                        <td style={{ padding: '0.85rem 0.75rem', fontWeight: '800' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                            {student.profilePicUrl || student.profilePic || student.avatarUrl ? (
+                              <img 
+                                src={student.profilePicUrl || student.profilePic || student.avatarUrl} 
+                                alt={student.name} 
+                                onError={(e) => {
+                                  e.currentTarget.onerror = null;
+                                  e.currentTarget.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(student.name)}`;
+                                }}
+                                style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: isTop1 ? '2px solid #eab308' : '1.5px solid #2563eb', flexShrink: 0 }} 
+                              />
+                            ) : (
+                              <div className="avatar-circle" style={{ width: '36px', height: '36px', backgroundColor: student.avatarBg || '#fb923c', color: '#ffffff', fontSize: '0.85rem', fontWeight: '800', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}>
+                                {student.initials || student.name.slice(0, 2).toUpperCase()}
+                              </div>
+                            )}
+
+                            <div>
+                              <div style={{ fontSize: '0.92rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                {student.name}
+                                {/* Streak Badge 🔥 */}
+                                {student.streak >= 3 && (
+                                  <span style={{ background: '#fff7ed', border: '1px solid #fed7aa', color: '#ea580c', padding: '0.15rem 0.45rem', borderRadius: '6px', fontSize: '0.72rem', fontWeight: '800' }}>
+                                    🔥 {student.streak}d
+                                  </span>
+                                )}
+                              </div>
+                              <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '600' }}>{student.domain}</span>
+                            </div>
                           </div>
-                        )}
+                        </td>
 
-                        <span>{student.name} ({student.domain})</span>
-                      </td>
-                      <td style={{ padding: '0.85rem 0.75rem' }}>-</td>
-                      <td style={{ padding: '0.85rem 0.75rem' }}>✔ {student.submissionCount} On-Time</td>
-                      <td style={{ padding: '0.85rem 0.75rem', textAlign: 'right', fontWeight: '900' }}>{student.totalScore} pts</td>
-                    </tr>
-                  ))}
+                        {/* Batch / Cohort */}
+                        <td style={{ padding: '0.85rem 0.75rem', fontSize: '0.82rem', color: '#475569', fontWeight: '700' }}>
+                          {student.batch || 'Batch A'}
+                        </td>
 
+                        {/* On-Time Submissions Fraction + Percentage */}
+                        <td style={{ padding: '0.85rem 0.75rem', fontSize: '0.82rem', fontWeight: '800', color: '#16a34a' }}>
+                          ✔ {student.onTimeFraction || `${student.onTimeCount || 0}/${student.totalSubmissionsCount || 0} On-Time`}
+                        </td>
+
+                        {/* Total Score */}
+                        <td style={{ padding: '0.85rem 0.75rem', textAlign: 'right', fontWeight: '900', fontSize: '1.05rem', color: isTop1 ? '#854d0e' : '#0f172a', borderRadius: '0 12px 12px 0' }}>
+                          {student.totalScore} pts
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           </div>
+
 
           {/* ROW 4: SUBMISSION PANEL & UPLOADED PIC UI */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '1.25rem' }}>
@@ -841,13 +1102,134 @@ export default function StudentDashboard() {
               </div>
 
               <div className="card" style={{ borderColor: '#0284c7', borderWidth: '1.5px' }}>
-                <h3 style={{ fontSize: '1.2rem', fontWeight: '800', marginBottom: '0.5rem' }}>My Scoreboard</h3>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: '800', marginBottom: '0.5rem' }}>My Scoreboard Summary</h3>
                 <span style={{ fontSize: '1.4rem', fontWeight: '900', color: '#2563eb' }}>{myScore.totalScore} TOTAL PTS</span>
               </div>
             </div>
           </div>
         </>
       )}
+
+      {/* STUDENT CLICKABLE ROW MODAL — SUBMISSION HISTORY & POINTS BREAKDOWN */}
+      {studentModal.open && studentModal.student && (
+        <div className="modal-overlay" onClick={() => setStudentModal({ open: false, student: null })}>
+          <div className="card" onClick={e => e.stopPropagation()} style={{ maxWidth: '640px', width: '100%', borderRadius: '20px', padding: '1.75rem' }}>
+            {/* MODAL HEADER */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                {studentModal.student.profilePicUrl || studentModal.student.profilePic || studentModal.student.avatarUrl ? (
+                  <img 
+                    src={studentModal.student.profilePicUrl || studentModal.student.profilePic || studentModal.student.avatarUrl} 
+                    alt={studentModal.student.name} 
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(studentModal.student.name)}`;
+                    }}
+                    style={{ width: '48px', height: '48px', borderRadius: '50%', border: '2px solid #2563eb', objectFit: 'cover' }} 
+                  />
+                ) : (
+                  <div className="avatar-circle" style={{ width: '48px', height: '48px', backgroundColor: studentModal.student.avatarBg || '#fb923c', color: '#ffffff', fontSize: '1.1rem', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}>
+                    {studentModal.student.initials || studentModal.student.name.slice(0, 2).toUpperCase()}
+                  </div>
+                )}
+                <div>
+                  <h3 style={{ fontSize: '1.25rem', fontWeight: '800', fontFamily: 'var(--font-heading)', color: '#0f172a' }}>
+                    {studentModal.student.name}
+                  </h3>
+                  <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: '700' }}>
+                    {studentModal.student.domain} • {studentModal.student.batch || 'Batch A'}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ textAlign: 'right' }}>
+                <span style={{ background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1d4ed8', padding: '0.35rem 0.75rem', borderRadius: '8px', fontSize: '0.82rem', fontWeight: '900' }}>
+                  Rank #{studentModal.student.todayRank || 1} ({studentModal.student.totalScore} pts)
+                </span>
+                <div style={{ fontSize: '0.75rem', color: '#ea580c', fontWeight: '800', marginTop: '0.25rem' }}>
+                  🔥 {studentModal.student.streak || 0}-Day Streak
+                </div>
+              </div>
+            </div>
+
+            {/* SUBMISSION HISTORY LAST 14 DAYS GRID */}
+            <div style={{ marginBottom: '1.25rem' }}>
+              <h4 style={{ fontSize: '0.88rem', fontWeight: '800', color: '#0f172a', marginBottom: '0.65rem' }}>
+                📅 Submission History (Last 14 Days)
+              </h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '0.45rem' }}>
+                {generateCalendarDays().filter(d => d.dateStr <= getISTDateDetails().todayStr).slice(-14).map((day) => {
+                  const habit = getStudentHabitRecord(studentModal.student.id, day.dateStr);
+                  const isDone = habit.studyDone && habit.submitDone;
+                  const isPartial = habit.studyDone || habit.submitDone;
+                  
+                  let bg = '#f1f5f9';
+                  let border = '#cbd5e1';
+                  let icon = '⌛';
+                  if (isDone) {
+                    bg = '#dcfce7';
+                    border = '#86efac';
+                    icon = '✓';
+                  } else if (habit.isMissed) {
+                    bg = '#fee2e2';
+                    border = '#fca5a5';
+                    icon = '❌';
+                  } else if (isPartial) {
+                    bg = '#fef3c7';
+                    border = '#fde68a';
+                    icon = '📖';
+                  }
+
+                  return (
+                    <div 
+                      key={day.dateStr}
+                      style={{
+                        background: bg,
+                        border: `1px solid ${border}`,
+                        borderRadius: '8px',
+                        padding: '0.4rem 0.2rem',
+                        textAlign: 'center',
+                        fontSize: '0.68rem',
+                        fontWeight: '800'
+                      }}
+                      title={`${day.dateLabel}: ${isDone ? 'Completed' : habit.isMissed ? 'Missed' : 'Partial'}`}
+                    >
+                      <div style={{ color: '#64748b' }}>{day.day}</div>
+                      <div style={{ fontSize: '0.85rem', marginTop: '0.1rem' }}>{icon}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* TOTAL POINTS BREAKDOWN */}
+            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1rem', marginBottom: '1.25rem' }}>
+              <h4 style={{ fontSize: '0.85rem', fontWeight: '800', color: '#0f172a', marginBottom: '0.5rem' }}>
+                📊 Total Points Breakdown
+              </h4>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.82rem', fontWeight: '700' }}>
+                <div>Base Submissions: <b style={{ color: '#1d4ed8' }}>+{studentModal.student.baseSubmissionPts || 0} pts</b></div>
+                <div>On-Time Bonus: <b style={{ color: '#16a34a' }}>+{studentModal.student.onTimeBonusPts || 0} pts</b></div>
+                <div>Early Bonus (&gt;1hr): <b style={{ color: '#0284c7' }}>+{studentModal.student.earlyBonusPts || 0} pts</b></div>
+                <div>Streak Bonus: <b style={{ color: '#ea580c' }}>+{studentModal.student.streakBonusPts || 0} pts</b></div>
+                <div>Missed Deductions: <b style={{ color: '#dc2626' }}>-{studentModal.student.missedDeductionsPts || 0} pts</b></div>
+                <div>Total Score: <b style={{ color: '#0f172a' }}>{studentModal.student.totalScore} pts</b></div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button 
+                onClick={() => setStudentModal({ open: false, student: null })} 
+                className="btn-primary" 
+                style={{ background: '#2563eb', padding: '0.5rem 1.25rem', borderRadius: '10px' }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
