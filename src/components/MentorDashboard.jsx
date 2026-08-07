@@ -149,20 +149,13 @@ export default function MentorDashboard() {
         </button>
 
         <button
-          onClick={() => setActiveSection('roster')}
-          className={activeSection === 'roster' ? 'btn-primary' : 'btn-outline'}
-          style={{ fontSize: '0.85rem' }}
-        >
-          <Users size={16} /> Student Roster
-        </button>
-
-        <button
           onClick={() => setActiveSection('teams')}
           className={activeSection === 'teams' ? 'btn-primary' : 'btn-outline'}
           style={{ fontSize: '0.85rem' }}
         >
-          <Sparkles size={16} /> Human AI Teams Management
+          <Users size={16} /> Team Allocation
         </button>
+
 
         <button
           onClick={() => setActiveSection('announcements')}
@@ -284,19 +277,20 @@ export default function MentorDashboard() {
         </div>
       )}
 
-      {/* HUMAN AI TEAM MANAGEMENT (Assign & Delete across students) */}
+      {/* TEAM ALLOCATION (Assign & Delete across students) */}
       {activeSection === 'teams' && (
         <div className="card">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
             <div>
-              <span className="section-label">HUMAN AI TEAM ASSIGNMENT</span>
-              <h2 style={{ fontSize: '1.3rem', fontWeight: '700' }}>Teams & Team Leads (Delete & Reassign Supported)</h2>
+              <span className="section-label">TEAM ALLOCATION</span>
+              <h2 style={{ fontSize: '1.3rem', fontWeight: '700' }}>Team Allocation & Assignments (Delete & Reassign Supported)</h2>
             </div>
 
             <button onClick={() => setShowTeamModal(true)} className="btn-primary" style={{ fontSize: '0.85rem' }}>
-              <Plus size={16} /> Create New Human AI Team
+              <Plus size={16} /> Create New Team Allocation
             </button>
           </div>
+
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.25rem' }}>
             {teams.map(team => {

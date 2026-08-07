@@ -148,27 +148,6 @@ export default function StudentDashboard() {
           </button>
 
           <button
-            onClick={() => setActiveTab('roadmap')}
-            style={{
-              fontSize: '0.92rem',
-              fontWeight: '800',
-              padding: '0.6rem 1.1rem',
-              borderRadius: 'var(--radius-md)',
-              border: 'none',
-              background: activeTab === 'roadmap' ? 'var(--primary-blue)' : 'transparent',
-              color: activeTab === 'roadmap' ? '#ffffff' : 'var(--text-muted)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              cursor: 'pointer',
-              boxShadow: activeTab === 'roadmap' ? '0 2px 8px rgba(39,82,221,0.25)' : 'none',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            <BookOpen size={18} /> 7-Month Roadmap ({studentDomain})
-          </button>
-
-          <button
             onClick={() => setActiveTab('resume')}
             style={{
               fontSize: '0.92rem',
@@ -216,12 +195,8 @@ export default function StudentDashboard() {
 
       {activeTab === 'resume' ? (
         <ResumeBuilder />
-      ) : activeTab === 'roadmap' ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.75rem' }}>
-          {/* MASTER DOMAIN BOOTCAMP ROADMAP PATTERN MATCHING UPLOADED IMAGE */}
-          <DomainBootcampRoadmap />
-        </div>
       ) : (
+
 
 
 
