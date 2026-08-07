@@ -9,11 +9,15 @@ export default function Navbar() {
   const [showNotifDrawer, setShowNotifDrawer] = useState(false);
   const [isUploadingPic, setIsUploadingPic] = useState(false);
 
-  const isDualRole = currentUser.roles.includes('student') && currentUser.roles.includes('mentor');
-  const unreadCount = notifications.filter(n => !n.isRead).length;
+  const userRoles = currentUser?.roles || ['student'];
+  const userName = currentUser?.name || 'STUDENT';
+  const userId = currentUser?.id || 'user-barath';
+  const isDualRole = userRoles.includes('student') && userRoles.includes('mentor');
+  const unreadCount = (notifications || []).filter(n => !n.isRead).length;
 
-  const avatarSrc = currentUser.profilePicUrl || currentUser.profilePic || currentUser.avatarUrl;
-  const fallbackAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(currentUser.name)}`;
+  const avatarSrc = currentUser?.profilePicUrl || currentUser?.profilePic || currentUser?.avatarUrl;
+  const fallbackAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(userName)}`;
+
 
   const handlePicUpload = async (e) => {
     const file = e.target.files?.[0];

@@ -33,7 +33,9 @@ export default function StudentDashboard() {
     mentorFeedbacks, calculateStudentStreak, milestoneBadges, leaderboardHistory 
   } = useApp();
 
-  const myStreak = calculateStudentStreak ? calculateStudentStreak(currentUser.id) : 0;
+  const currentUserId = currentUser?.id || 'user-barath';
+  const myStreak = (calculateStudentStreak && currentUserId) ? calculateStudentStreak(currentUserId) : 0;
+
 
   // Leaderboard Filters & Modal State
   const [cohortFilter, setCohortFilter] = useState('ALL');
@@ -204,19 +206,20 @@ export default function StudentDashboard() {
     });
   }, [filteredLeaderboardUsers, leaderboardHistory]);
 
-  const myScore = calculateStudentScore(currentUser.id, timeRangeToggle);
-  const myRankItem = leaderboardWithRanks.find(s => s.id === currentUser.id);
+  const myScore = currentUserId ? calculateStudentScore(currentUserId, timeRangeToggle) : { totalScore: 0, baseSubmissionPts: 0, onTimeBonusPts: 0, earlyBonusPts: 0, streakBonusPts: 0, teamPts: 0, leadershipPts: 0, projectPts: 0, firstSubmitterPts: 0, penaltyPts: 0, missedDeductionsPts: 0, onTimeCount: 0, totalSubmissionsCount: 0, onTimeFraction: '0/0 On-Time (0%)', pointsLedger: [] };
+  const myRankItem = leaderboardWithRanks.find(s => s.id === currentUserId);
   const myRank = myRankItem ? myRankItem.todayRank : 1;
   const nextRankItem = myRank > 1 ? leaderboardWithRanks[myRank - 2] : null;
-  const ptsGapToNext = nextRankItem ? (nextRankItem.totalScore - (myScore.totalScore || 0)) + 1 : 0;
+  const ptsGapToNext = nextRankItem ? Math.max(0, (nextRankItem.totalScore - (myScore?.totalScore || 0)) + 1) : 0;
 
   const globalLeaderboard = leaderboardWithRanks;
 
-  const mySubmissions = submissions.filter(s => s.studentId === currentUser.id);
-  const myTeam = teams.find(t => t.memberIds.includes(currentUser.id));
+  const mySubmissions = submissions.filter(s => s.studentId === currentUserId);
+  const myTeam = teams.find(t => t.memberIds && t.memberIds.includes(currentUserId));
 
-  const studentDomain = currentUser.domain || 'FULLSTACK';
+  const studentDomain = currentUser?.domain || 'FULLSTACK';
   const currentRoadmap = domainRoadmaps[studentDomain] || domainRoadmaps['FULLSTACK'];
+
 
 
   return (
@@ -459,7 +462,8 @@ export default function StudentDashboard() {
             >
               {activeMonthDays.map((item) => {
                 const dateStr = item.dateStr;
-                const habitRec = getStudentHabitRecord(currentUser.id, dateStr);
+                const habitRec = getStudentHabitRecord(currentUserId, dateStr);
+
                 const studyDone = habitRec.studyDone;
                 const submitDone = habitRec.submitDone;
                 const isMissed = habitRec.isMissed;
@@ -545,7 +549,7 @@ export default function StudentDashboard() {
                         cursor: isActive ? 'pointer' : 'not-allowed',
                         opacity: isActive ? 1 : 0.85 
                       }} 
-                      onClick={() => isActive && toggleDailyHabit(currentUser.id, dateStr, 'studyDone')}
+                      onClick={() => isActive && toggleDailyHabit(currentUserId, dateStr, 'studyDone')}
                     >
                       <span>📖 7 PM Study</span>
                       <input 
@@ -573,7 +577,7 @@ export default function StudentDashboard() {
                         cursor: (!isActive || isPast11PM) ? 'not-allowed' : 'pointer',
                         opacity: (!isActive || isPast11PM) ? 0.85 : 1 
                       }} 
-                      onClick={() => isActive && !isPast11PM && toggleDailyHabit(currentUser.id, dateStr, 'submitDone')}
+                      onClick={() => isActive && !isPast11PM && toggleDailyHabit(currentUserId, dateStr, 'submitDone')}
                     >
                       <span>
                         {submitDone ? '📤 11 PM Subm...' : (isSubmitLocked && (isPast || isPast11PM) ? '❌ 11 PM Missed' : '📤 11 PM Subm...')}
@@ -594,9 +598,9 @@ export default function StudentDashboard() {
                     </div>
 
                     {/* MENTOR FEEDBACK BANNER ON CARD */}
-                    {mentorFeedbacks && mentorFeedbacks[`${currentUser.id}_${dateStr}`] && (
+                    {mentorFeedbacks && mentorFeedbacks[`${currentUserId}_${dateStr}`] && (
                       <div 
-                        title={`Mentor Feedback: "${mentorFeedbacks[`${currentUser.id}_${dateStr}`]}"`}
+                        title={`Mentor Feedback: "${mentorFeedbacks[`${currentUserId}_${dateStr}`]}"`}
                         style={{
                           background: '#eff6ff',
                           border: '1px solid #bfdbfe',
@@ -608,9 +612,10 @@ export default function StudentDashboard() {
                           lineHeight: '1.25'
                         }}
                       >
-                        💬 <b>Mentor:</b> "{mentorFeedbacks[`${currentUser.id}_${dateStr}`]}"
+                        💬 <b>Mentor:</b> "{mentorFeedbacks[`${currentUserId}_${dateStr}`]}"
                       </div>
                     )}
+
                   </div>
                 );
               })}
@@ -927,7 +932,8 @@ export default function StudentDashboard() {
                     const isTop3 = rank === 3;
 
                     // Distinct Highlighted Styles for Top 3
-                    let rowBg = student.id === currentUser.id ? '#eff6ff' : '#ffffff';
+                    let rowBg = student.id === currentUserId ? '#eff6ff' : '#ffffff';
+
                     let rowBorder = '1px solid #e2e8f0';
                     let rankBadge = `#${rank}`;
                     let rankBg = '#f1f5f9';
@@ -1041,7 +1047,8 @@ export default function StudentDashboard() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '1.25rem' }}>
             <div className="card" style={{ borderColor: '#8b5cf6', borderWidth: '1.5px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
-                <h2 style={{ fontSize: '1.25rem', fontWeight: '800' }}>{currentUser.name}'s Submission Panel</h2>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: '800' }}>{currentUser?.name || 'Student'}'s Submission Panel</h2>
+
                 <div style={{ background: '#fff7ed', border: '1.5px solid #ffedd5', color: '#c2410c', padding: '0.35rem 0.75rem', borderRadius: '9999px', fontSize: '0.78rem', fontWeight: '800' }}>
                   ⏳ {String(timeLeft.hours).padStart(2, '0')}h {String(timeLeft.minutes).padStart(2, '0')}m {String(timeLeft.seconds).padStart(2, '0')}s
                 </div>

@@ -292,7 +292,23 @@ const CLOUD_SYNC_ENDPOINT = 'https://jsonblob.com/api/jsonBlob/019fd29a-5c27-7bf
 
 
 
-  const currentUser = users.find(u => u.id === currentUserId) || users[0];
+  const DEFAULT_FALLBACK_USER = {
+    id: 'user-barath',
+    name: 'BARATHKRISHNA H',
+    email: 'barathkrishna@powerhub.dev',
+    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
+    avatarBg: '#38bdf8',
+    initials: 'BK',
+    roles: ['student', 'mentor', 'admin'],
+    domain: 'FULLSTACK',
+    batch: 'Batch A - Aug 2026 (Fullstack & AI)',
+    mentorBatches: ['Batch A - Aug 2026 (Fullstack & AI)', 'Batch B - Aug 2026 (VLSI & Embedded)', 'Batch C - Aug 2026 (Automotive & IoT)'],
+    bootcampId: 'bootcamp-1',
+    bio: 'Lead student building fullstack AI platforms.'
+  };
+
+  const currentUser = (users && users.length > 0) ? (users.find(u => u.id === currentUserId) || users[0]) : DEFAULT_FALLBACK_USER;
+
 
   const selectProfile = (userId) => {
     setCurrentUserId(userId);
