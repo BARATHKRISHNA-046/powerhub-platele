@@ -1,0 +1,49 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id          String       @id @default(cuid())
+  name        String
+  email       String       @unique
+  roles       String[]     @default(["student"])
+  domain      String       @default("Fullstack Development")
+  avatarBg    String       @default("#2752dd")
+  profilePic  String?
+  submissions Submission[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model Submission {
+  id           String   @id @default(cuid())
+  studentId    String
+  studentName  String
+  githubUrl    String
+  mediaFiles   String[] @default([])
+  status       String   @default("pending")
+  scoreAwarded Int      @default(0)
+  createdAt    DateTime @default(now())
+  student      User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+model Team {
+  id            String   @id @default(cuid())
+  name          String
+  teamAvatarUrl String
+  leadStudentId String
+  memberIds     String[]
+  createdAt     DateTime @default(now())
+}
+
+model Announcement {
+  id         String   @id @default(cuid())
+  authorName String
+  title      String
+  message    String
+  createdAt  DateTime @default(now())
+}

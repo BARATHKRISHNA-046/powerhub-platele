@@ -7,11 +7,7 @@ import {
 } from 'lucide-react';
 import ResumeBuilder from './ResumeBuilder';
 import DomainBootcampRoadmap from './DomainBootcampRoadmap';
-
-
-
-
-
+import { uploadSubmissionMedia } from '../lib/uploadSubmission';
 
 import { Radar } from 'react-chartjs-2';
 import {
@@ -37,6 +33,8 @@ export default function StudentDashboard() {
   const [githubUrl, setGithubUrl] = useState('');
   const [imageAttachment, setImageAttachment] = useState('');
   const [isProject, setIsProject] = useState(true);
+  const [mediaFile, setMediaFile] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [submitSuccess, setSubmitSuccess] = useState('');
   const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard' | 'roadmap' | 'resume'
@@ -73,28 +71,48 @@ export default function StudentDashboard() {
     return () => clearInterval(timer);
   }, []);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitError('');
     setSubmitSuccess('');
 
+    // Strict GitHub URL validation (must match https://github.com/...)
+    if (!githubUrl || !githubUrl.trim().startsWith('https://github.com/')) {
+      setSubmitError('Invalid GitHub Link! Repository URL must start with https://github.com/');
+      return;
+    }
+
+    setIsUploading(true);
     try {
+      let uploadedMediaUrl = null;
+      if (mediaFile) {
+        uploadedMediaUrl = await uploadSubmissionMedia(mediaFile);
+      }
+
+      const mediaFiles = uploadedMediaUrl ? [uploadedMediaUrl] : (imageAttachment ? [imageAttachment] : []);
+
       submitWork({
-        githubUrl,
-        imageAttachment,
-        roundName: 'Month 1 Sprint Deliverable',
+        githubUrl: githubUrl.trim(),
+        mediaFiles,
+        imageAttachment: uploadedMediaUrl || imageAttachment,
+        roundName: 'Sprint Deliverable',
         isProject
       });
-      setSubmitSuccess('Submission recorded successfully! Great work.');
+
+      setSubmitSuccess('Deliverable submitted successfully via Supabase & Prisma!');
       setGithubUrl('');
+      setMediaFile(null);
       setImageAttachment('');
     } catch (err) {
-      setSubmitError(err.message);
+      setSubmitError('Submission failed. Please verify inputs and try again.');
+    } finally {
+      setIsUploading(false);
     }
   };
 
   const globalLeaderboard = users.map(user => {
     const scoreObj = calculateStudentScore(user.id);
+
     return {
       ...user,
       ...scoreObj
@@ -422,9 +440,62 @@ export default function StudentDashboard() {
               </div>
 
               <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
-                <input type="url" value={githubUrl} onChange={e => setGithubUrl(e.target.value)} placeholder="https://github.com/username/project-repository" required style={{ width: '100%', padding: '0.65rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-medium)' }} />
-                <button type="submit" className="btn-secondary" style={{ backgroundColor: '#1e293b' }}>Submit Deliverable</button>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '800', textTransform: 'uppercase', marginBottom: '0.35rem', color: '#334155' }}>
+                    GitHub Repository Link (Required: https://github.com/...)
+                  </label>
+                  <input 
+                    type="url" 
+                    value={githubUrl} 
+                    onChange={e => {
+                      setGithubUrl(e.target.value);
+                      if (submitError) setSubmitError('');
+                    }} 
+                    placeholder="https://github.com/username/project-repository" 
+                    required 
+                    style={{ width: '100%', padding: '0.65rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-medium)', fontSize: '0.88rem' }} 
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '800', textTransform: 'uppercase', marginBottom: '0.35rem', color: '#334155' }}>
+                    Optional Media Upload (Image or Video to Supabase Storage)
+                  </label>
+                  <input 
+                    type="file" 
+                    accept="image/*,video/*"
+                    onChange={e => setMediaFile(e.target.files?.[0] || null)}
+                    style={{ width: '100%', padding: '0.5rem', fontSize: '0.85rem', background: '#f8fafc', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-medium)' }}
+                  />
+                  {mediaFile && (
+                    <span style={{ fontSize: '0.75rem', color: '#059669', fontWeight: '700', marginTop: '0.25rem', display: 'block' }}>
+                      📁 Selected for Supabase Storage: {mediaFile.name} ({(mediaFile.size / 1024 / 1024).toFixed(2)} MB)
+                    </span>
+                  )}
+                </div>
+
+                {submitError && (
+                  <div style={{ padding: '0.65rem', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '6px', color: '#dc2626', fontSize: '0.82rem', fontWeight: '700' }}>
+                    {submitError}
+                  </div>
+                )}
+
+                {submitSuccess && (
+                  <div style={{ padding: '0.65rem', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '6px', color: '#166534', fontSize: '0.82rem', fontWeight: '700' }}>
+                    {submitSuccess}
+                  </div>
+                )}
+
+                <button 
+                  type="submit" 
+                  disabled={isUploading}
+                  className="btn-secondary" 
+                  style={{ backgroundColor: isUploading ? '#64748b' : '#1e293b', cursor: isUploading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                >
+                  {isUploading ? 'Uploading to Supabase Storage...' : 'Submit Deliverable via Supabase'}
+                </button>
               </form>
+
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
