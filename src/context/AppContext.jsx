@@ -25,11 +25,17 @@ import {
   supabase, 
   syncProfileToSupabase, 
   syncAnnouncementToSupabase,
+  syncTeamToSupabase,
+  deleteTeamFromSupabase,
   syncSubmissionToSupabase,
+  syncDailyHabitToSupabase,
   fetchProfilesFromSupabase,
   fetchAnnouncementsFromSupabase,
-  fetchSubmissionsFromSupabase
+  fetchTeamsFromSupabase,
+  fetchSubmissionsFromSupabase,
+  fetchDailyHabitsFromSupabase
 } from '../lib/supabase';
+
 
 
 
@@ -217,27 +223,47 @@ export const AppProvider = ({ children }) => {
       if (profiles && Array.isArray(profiles) && profiles.length > 0) {
         console.log(`✅ [Supabase Read Success] Received ${profiles.length} profiles from database.`);
         setUsers(prevUsers => {
-          return prevUsers.map(u => {
-            const match = profiles.find(p => p.id === u.id);
-            if (match && (match.avatar_url || match.profile_pic_url)) {
-              const freshPic = match.avatar_url || match.profile_pic_url;
-              return {
-                ...u,
-                name: match.name || u.name,
-                email: match.email || u.email,
-                profilePicUrl: freshPic,
-                profilePic: freshPic,
-                avatarUrl: freshPic
+          // Merge Supabase profiles over existing users, adding new remote users if created on another device
+          const updatedUsers = [...prevUsers];
+          profiles.forEach(p => {
+            const index = updatedUsers.findIndex(u => u.id === p.id);
+            const freshPic = p.avatar_url || p.profile_pic_url;
+            if (index !== -1) {
+              updatedUsers[index] = {
+                ...updatedUsers[index],
+                name: p.name || updatedUsers[index].name,
+                email: p.email || updatedUsers[index].email,
+                profilePicUrl: freshPic || updatedUsers[index].profilePicUrl,
+                profilePic: freshPic || updatedUsers[index].profilePic,
+                avatarUrl: freshPic || updatedUsers[index].avatarUrl,
+                roles: p.roles || updatedUsers[index].roles,
+                domain: p.domain || updatedUsers[index].domain,
+                batch: p.batch || updatedUsers[index].batch,
+                bio: p.bio || updatedUsers[index].bio
               };
+            } else {
+              // Add new student/user created on another device
+              updatedUsers.push({
+                id: p.id,
+                name: p.name || 'New Student',
+                email: p.email || '',
+                profilePicUrl: freshPic || '',
+                profilePic: freshPic || '',
+                avatarUrl: freshPic || '',
+                roles: p.roles || ['student'],
+                domain: p.domain || 'FULLSTACK',
+                batch: p.batch || 'Batch A - Aug 2026 (Fullstack & AI)',
+                bio: p.bio || ''
+              });
             }
-            return u;
           });
+          return updatedUsers;
         });
       }
 
       // 2. Query Announcements Table from Supabase
       const dbAnnouncements = await fetchAnnouncementsFromSupabase();
-      if (dbAnnouncements && Array.isArray(dbAnnouncements) && dbAnnouncements.length > 0) {
+      if (dbAnnouncements && Array.isArray(dbAnnouncements)) {
         console.log(`✅ [Supabase Read Success] Received ${dbAnnouncements.length} announcements from database.`);
         const formattedAnnouncements = dbAnnouncements.map(a => ({
           id: a.id,
@@ -252,9 +278,24 @@ export const AppProvider = ({ children }) => {
         setAnnouncements(formattedAnnouncements);
       }
 
-      // 3. Query Submissions Table from Supabase
+      // 3. Query Teams Table from Supabase
+      const dbTeams = await fetchTeamsFromSupabase();
+      if (dbTeams && Array.isArray(dbTeams)) {
+        console.log(`✅ [Supabase Read Success] Received ${dbTeams.length} teams from database.`);
+        const formattedTeams = dbTeams.map(t => ({
+          id: t.id,
+          name: t.name,
+          leadStudentId: t.lead_student_id,
+          memberIds: t.member_ids || [],
+          githubUrl: t.github_url || '',
+          createdAt: t.created_at
+        }));
+        setTeams(formattedTeams);
+      }
+
+      // 4. Query Submissions Table from Supabase
       const dbSubmissions = await fetchSubmissionsFromSupabase();
-      if (dbSubmissions && Array.isArray(dbSubmissions) && dbSubmissions.length > 0) {
+      if (dbSubmissions && Array.isArray(dbSubmissions)) {
         console.log(`✅ [Supabase Read Success] Received ${dbSubmissions.length} submissions from database.`);
         const formattedSubmissions = dbSubmissions.map(s => ({
           id: s.id,
@@ -264,15 +305,35 @@ export const AppProvider = ({ children }) => {
           imageAttachment: s.media_url,
           mediaFiles: s.media_url ? [s.media_url] : [],
           roundName: s.round_name || 'Sprint Deliverable',
+          isProject: Boolean(s.is_project),
           createdAt: s.created_at
         }));
         setSubmissions(formattedSubmissions);
+      }
+
+      // 5. Query Daily Habits Table from Supabase
+      const dbHabits = await fetchDailyHabitsFromSupabase();
+      if (dbHabits && Array.isArray(dbHabits)) {
+        console.log(`✅ [Supabase Read Success] Received ${dbHabits.length} daily habit records from database.`);
+        setDailyHabitStates(prev => {
+          const updated = { ...prev };
+          dbHabits.forEach(h => {
+            if (h.key) {
+              updated[h.key] = {
+                studyDone: Boolean(h.study_done),
+                submitDone: Boolean(h.submit_done)
+              };
+            }
+          });
+          return updated;
+        });
       }
 
     } catch (err) {
       console.warn('⚠️ [Supabase Database Fetch Warning]:', err);
     }
   };
+
 
   // AUTOMATIC MULTI-DEVICE REALTIME CLOUD SYNC: Supabase Realtime + Polling + Focus Event Listeners
   useEffect(() => {
@@ -473,16 +534,19 @@ export const AppProvider = ({ children }) => {
 
     setDailyHabitStates(prev => {
       const currentVal = prev[key] || prev[dateStr] || { studyDone: false, submitDone: false };
+      const updatedVal = {
+        ...currentVal,
+        [field]: !currentVal[field]
+      };
+      syncDailyHabitToSupabase(targetStudentId, dateStr, updatedVal);
       return {
         ...prev,
-        [key]: {
-          ...currentVal,
-          [field]: !currentVal[field]
-        }
+        [key]: updatedVal
       };
     });
     return true;
   };
+
 
   const [mentorFeedbacks, setMentorFeedbacks] = useState(() => {
 
@@ -754,11 +818,14 @@ export const AppProvider = ({ children }) => {
       createdAt: new Date().toISOString()
     };
     setTeams(prev => [...prev, newTeam]);
+    syncTeamToSupabase(newTeam);
   };
 
   const deleteTeam = (teamId) => {
     setTeams(prev => prev.filter(t => t.id !== teamId));
+    deleteTeamFromSupabase(teamId);
   };
+
 
   const postAnnouncement = ({ title, message, bootcampId }) => {
     const newAnn = {
