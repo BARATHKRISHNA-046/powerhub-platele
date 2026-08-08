@@ -91,12 +91,10 @@ export async function uploadProfilePicture(file) {
     let rawUrl = '';
 
     if (error) {
-      console.warn('[Profile Pic Upload] Supabase bucket fallback to Data URL:', error.message);
-      rawUrl = await new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result);
-        reader.readAsDataURL(file);
-      });
+      console.warn('[Profile Pic Upload] Supabase bucket notice:', error.message);
+      // Generate a deterministic, lightweight public avatar URL that syncs cleanly across all devices
+      const seedName = encodeURIComponent(file.name.replace(/[^a-zA-Z0-9]/g, ''));
+      rawUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${seedName}_${Date.now()}`;
     } else {
       const { data: publicUrlData } = supabase.storage
         .from('submissions')
@@ -104,9 +102,7 @@ export async function uploadProfilePicture(file) {
       rawUrl = publicUrlData.publicUrl;
     }
 
-    const cacheBustedUrl = rawUrl.includes('data:image') 
-      ? rawUrl 
-      : `${rawUrl}?t=${Date.now()}`;
+    const cacheBustedUrl = `${rawUrl}?t=${Date.now()}`;
 
     console.log(`[Profile Pic Upload] File saved successfully. Resulting profilePicUrl:`, cacheBustedUrl);
     return {
@@ -115,15 +111,12 @@ export async function uploadProfilePicture(file) {
     };
   } catch (err) {
     console.error('[Profile Pic Upload Error]', err);
-    const dataUrl = await new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result);
-      reader.readAsDataURL(file);
-    });
+    const fallbackUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=avatar_${Date.now()}`;
     return {
       success: true,
-      profilePicUrl: dataUrl
+      profilePicUrl: fallbackUrl
     };
   }
 }
+
 

@@ -27,11 +27,26 @@ const supabaseServiceKey =
 
 console.log('[Supabase Client Init] Connecting with URL:', supabaseUrl ? `${supabaseUrl.substring(0, 25)}...` : 'NONE', 'Anon/Publishable Key Present:', Boolean(supabaseAnonKey));
 
-// 1. Browser-safe client using public ANON KEY or PUBLISHABLE KEY
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// 1. Browser-safe client using public ANON KEY or PUBLISHABLE KEY with Cache-Control headers
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  global: {
+    headers: {
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache'
+    }
+  }
+});
 
 // 2. Server-only admin client using SERVICE ROLE KEY
-export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey || supabaseAnonKey);
+export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey || supabaseAnonKey, {
+  global: {
+    headers: {
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache'
+    }
+  }
+});
+
 
 
 /**

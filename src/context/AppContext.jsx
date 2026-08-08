@@ -641,22 +641,24 @@ export const AppProvider = ({ children }) => {
       });
     }
 
-    // Check missed days deductions (-2 pts per missed day)
-    const calendarDays = generateCalendarDays();
-    const pastDays = calendarDays.filter(d => d.dateStr < getISTDateDetails().todayStr);
-    pastDays.forEach(day => {
-      const habit = getStudentHabitRecord(studentId, day.dateStr);
-      if (habit.isMissed) {
-        missedDeductionsPts += 2;
-        pointsLedger.push({
-          id: `leg-missed-${day.dateStr}`,
-          date: day.dateStr,
-          reason: `Deduction: Missed Submission (${day.dateLabel})`,
-          amount: '-2 pts',
-          type: 'deduct'
-        });
+    // Check missed days deductions (-2 pts per recorded missed day)
+    Object.keys(dailyHabitStates).forEach(key => {
+      if (key.startsWith(`${studentId}_`)) {
+        const dateStr = key.replace(`${studentId}_`, '');
+        const habit = dailyHabitStates[key];
+        if (habit && !habit.submitDone && dateStr < getISTDateDetails().todayStr) {
+          missedDeductionsPts += 2;
+          pointsLedger.push({
+            id: `leg-missed-${dateStr}`,
+            date: dateStr,
+            reason: `Deduction: Missed Submission (${dateStr})`,
+            amount: '-2 pts',
+            type: 'deduct'
+          });
+        }
       }
     });
+
 
     const teamPts = studentTeams.length * 5;
     const leadershipPts = leadTeams.length * 15;
