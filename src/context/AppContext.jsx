@@ -25,6 +25,7 @@ import {
   supabase, 
   syncProfileToSupabase, 
   syncAnnouncementToSupabase,
+  deleteAnnouncementFromSupabase,
   syncTeamToSupabase,
   deleteTeamFromSupabase,
   syncSubmissionToSupabase,
@@ -35,6 +36,7 @@ import {
   fetchSubmissionsFromSupabase,
   fetchDailyHabitsFromSupabase
 } from '../lib/supabase';
+
 
 
 
@@ -97,48 +99,24 @@ export const compressImageFile = (file, maxWidth = 280, maxHeight = 280, quality
 
 export const AppProvider = ({ children }) => {
 
-  const savedDb = loadSavedDatabase();
+  // Users State (initialized from seed, populated live from Supabase)
+  const [users, setUsers] = useState(INITIAL_USERS);
 
-  // Users State (with seed merge protection)
-  const [users, setUsers] = useState(() => {
-    if (savedDb && savedDb.users && Array.isArray(savedDb.users)) {
-      // Merge initial users to ensure any newly added mock user is present without overwriting saved changes
-      const savedUserIds = new Set(savedDb.users.map(u => u.id));
-      const newSeedUsers = INITIAL_USERS.filter(u => !savedUserIds.has(u.id));
-      return [...savedDb.users, ...newSeedUsers];
-    }
-    return INITIAL_USERS;
-  });
+  // Teams State (populated live from Supabase)
+  const [teams, setTeams] = useState([]);
 
-  // Teams State
-  const [teams, setTeams] = useState(() => {
-    if (savedDb && savedDb.teams && Array.isArray(savedDb.teams)) return savedDb.teams;
-    return INITIAL_TEAMS;
-  });
-
-  // Submissions State
-  const [submissions, setSubmissions] = useState(() => {
-    if (savedDb && savedDb.submissions && Array.isArray(savedDb.submissions)) return savedDb.submissions;
-    return INITIAL_SUBMISSIONS;
-  });
+  // Submissions State (populated live from Supabase)
+  const [submissions, setSubmissions] = useState([]);
 
   // Skill Ratings State
-  const [skillRatings, setSkillRatings] = useState(() => {
-    if (savedDb && savedDb.skillRatings && Array.isArray(savedDb.skillRatings)) return savedDb.skillRatings;
-    return INITIAL_SKILL_RATINGS;
-  });
+  const [skillRatings, setSkillRatings] = useState([]);
 
-  // Announcements State
-  const [announcements, setAnnouncements] = useState(() => {
-    if (savedDb && savedDb.announcements && Array.isArray(savedDb.announcements)) return savedDb.announcements;
-    return INITIAL_ANNOUNCEMENTS;
-  });
+  // Announcements State (populated live from Supabase)
+  const [announcements, setAnnouncements] = useState([]);
 
   // Audit Logs State
-  const [auditLogs, setAuditLogs] = useState(() => {
-    if (savedDb && savedDb.auditLogs && Array.isArray(savedDb.auditLogs)) return savedDb.auditLogs;
-    return INITIAL_AUDIT_LOGS;
-  });
+  const [auditLogs, setAuditLogs] = useState([]);
+
 
   // Resume Profiles State
   const [resumeProfiles, setResumeProfiles] = useState(() => {
@@ -367,53 +345,12 @@ export const AppProvider = ({ children }) => {
     };
   }, []);
 
-  // Manual Sync Cloud Database function
+  // Manual Sync Cloud Database function (refetches fresh state from Supabase)
   const syncCloudDatabase = async () => {
     await fetchLatestCloudDb();
     alert('☁️ Live Supabase Cloud Sync Complete! All device profiles, announcements, and submissions are up to date.');
   };
 
-
-
-  // UNIFIED AUTO-SAVE & MULTI-DEVICE CLOUD SYNC HOOK
-  useEffect(() => {
-    const dbPayload = {
-      users,
-      teams,
-      submissions,
-      skillRatings,
-      announcements,
-      auditLogs,
-      resumeProfiles,
-      googleMeetConfig,
-      googleDriveUrl,
-      googleClassroomUrl,
-      dailyHabitStates,
-      lastSavedAt: new Date().toISOString()
-    };
-
-    // 1. Save to local device storage
-    try {
-      localStorage.setItem(DB_STORAGE_KEY, JSON.stringify(dbPayload));
-    } catch (err) {
-      console.warn('LocalStorage save warning:', err);
-    }
-
-    // 2. Push update to multi-device cloud sync bucket
-    const timer = setTimeout(() => {
-      fetch(CLOUD_SYNC_ENDPOINT, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(dbPayload)
-      }).catch(err => console.warn('Cloud update push notice:', err));
-    }, 800);
-
-    return () => clearTimeout(timer);
-  }, [
-    users, teams, submissions, skillRatings, announcements, 
-    auditLogs, resumeProfiles, googleMeetConfig, googleDriveUrl, 
-    googleClassroomUrl, dailyHabitStates
-  ]);
 
 
 
@@ -845,7 +782,9 @@ export const AppProvider = ({ children }) => {
 
   const deleteAnnouncement = (annId) => {
     setAnnouncements(prev => prev.filter(a => a.id !== annId));
+    deleteAnnouncementFromSupabase(annId);
   };
+
 
   // Database Backup Export Utility (JSON File Download)
   const exportDatabase = () => {

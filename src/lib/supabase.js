@@ -172,6 +172,18 @@ export async function syncAnnouncementToSupabase(announcement) {
   }
 }
 
+export async function deleteAnnouncementFromSupabase(annId) {
+  if (!annId) return;
+  console.log('🔄 [Supabase DB Delete] Removing announcement:', annId);
+  try {
+    const { error } = await supabase.from('announcements').delete().eq('id', annId);
+    if (error) console.warn('⚠️ [Supabase DB Delete Announcement Warning]:', error.message);
+  } catch (err) {
+    console.warn('⚠️ [Supabase DB Delete Announcement Exception]:', err.message);
+  }
+}
+
+
 export async function syncTeamToSupabase(team) {
   if (!team || !team.id) return;
   console.log('🔄 [Supabase DB Write] Upserting team:', team.id, team.name);
