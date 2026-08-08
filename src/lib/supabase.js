@@ -1,15 +1,38 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Environment variables fallback for both Vite and Node server contexts
-const supabaseUrl = import.meta.env?.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env?.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-const supabaseServiceKey = process.env?.SUPABASE_SERVICE_ROLE_KEY || import.meta.env?.VITE_SUPABASE_SERVICE_ROLE_KEY || '';
+// Comprehensive environment variable fallbacks for Vite, Next.js, and Vercel Supabase integration
 
-// 1. Browser-safe client using public ANON KEY
+const supabaseUrl = 
+  import.meta.env?.VITE_SUPABASE_URL || 
+  import.meta.env?.NEXT_PUBLIC_SUPABASE_URL || 
+  import.meta.env?.SUPABASE_URL ||
+  (typeof process !== 'undefined' ? (process.env?.VITE_SUPABASE_URL || process.env?.NEXT_PUBLIC_SUPABASE_URL || process.env?.SUPABASE_URL) : '') || 
+  '';
+
+const supabaseAnonKey = 
+  import.meta.env?.VITE_SUPABASE_ANON_KEY || 
+  import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY || 
+  import.meta.env?.NEXT_PUBLIC_SUPABASE_ANON_KEY || 
+  import.meta.env?.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 
+  import.meta.env?.SUPABASE_ANON_KEY || 
+  import.meta.env?.SUPABASE_PUBLISHABLE_KEY || 
+  (typeof process !== 'undefined' ? (process.env?.VITE_SUPABASE_ANON_KEY || process.env?.VITE_SUPABASE_PUBLISHABLE_KEY || process.env?.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env?.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env?.SUPABASE_ANON_KEY || process.env?.SUPABASE_PUBLISHABLE_KEY) : '') || 
+  '';
+
+const supabaseServiceKey = 
+  (typeof process !== 'undefined' ? (process.env?.SUPABASE_SERVICE_ROLE_KEY || process.env?.SUPABASE_SECRET_KEY || process.env?.VITE_SUPABASE_SERVICE_ROLE_KEY) : '') || 
+  import.meta.env?.VITE_SUPABASE_SERVICE_ROLE_KEY || 
+  import.meta.env?.VITE_SUPABASE_SECRET_KEY || 
+  '';
+
+console.log('[Supabase Client Init] Connecting with URL:', supabaseUrl ? `${supabaseUrl.substring(0, 25)}...` : 'NONE', 'Anon/Publishable Key Present:', Boolean(supabaseAnonKey));
+
+// 1. Browser-safe client using public ANON KEY or PUBLISHABLE KEY
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // 2. Server-only admin client using SERVICE ROLE KEY
 export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey || supabaseAnonKey);
+
 
 /**
  * SUPABASE REALTIME REPLICATION & RLS SETUP SQL

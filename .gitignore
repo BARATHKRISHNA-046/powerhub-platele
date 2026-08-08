@@ -8,3 +8,4 @@ powerhub_project_full_source.zip
 .vercel
 
 /src/generated/prisma
+.env*
