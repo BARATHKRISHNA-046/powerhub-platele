@@ -21,7 +21,16 @@ import {
   BATCHES,
   MILESTONE_BADGES
 } from '../data/mockData';
-import { supabase, syncProfileToSupabase, syncAnnouncementToSupabase } from '../lib/supabase';
+import { 
+  supabase, 
+  syncProfileToSupabase, 
+  syncAnnouncementToSupabase,
+  syncSubmissionToSupabase,
+  fetchProfilesFromSupabase,
+  fetchAnnouncementsFromSupabase,
+  fetchSubmissionsFromSupabase
+} from '../lib/supabase';
+
 
 
 
@@ -198,37 +207,74 @@ export const AppProvider = ({ children }) => {
     }
   ]);
 
-const CLOUD_SYNC_ENDPOINT = 'https://jsonblob.com/api/jsonBlob/019fd29a-5c27-7bf2-906e-eb5b0a244f94';
-
+  // DIRECT SUPABASE DATABASE READ & LIVE SYNC FUNCTION
   const fetchLatestCloudDb = async () => {
     try {
-      const res = await fetch(`${CLOUD_SYNC_ENDPOINT}?t=${Date.now()}`, { 
-        cache: 'no-store',
-        headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache'
-        }
-      });
-      if (res.ok) {
-        const cloudData = await res.json();
-        if (cloudData && typeof cloudData === 'object') {
-          if (Array.isArray(cloudData.users) && cloudData.users.length > 0) setUsers(cloudData.users);
-          if (Array.isArray(cloudData.teams)) setTeams(cloudData.teams);
-          if (Array.isArray(cloudData.announcements)) setAnnouncements(cloudData.announcements);
-          if (Array.isArray(cloudData.submissions)) setSubmissions(cloudData.submissions);
-          if (Array.isArray(cloudData.skillRatings)) setSkillRatings(cloudData.skillRatings);
-          if (cloudData.googleMeetConfig) setGoogleMeetConfig(cloudData.googleMeetConfig);
-          if (cloudData.googleDriveUrl) setGoogleDriveUrl(cloudData.googleDriveUrl);
-          if (cloudData.googleClassroomUrl) setGoogleClassroomUrl(cloudData.googleClassroomUrl);
-          if (cloudData.dailyHabitStates) setDailyHabitStates(cloudData.dailyHabitStates);
-        }
+      console.log('🔄 [Supabase Sync Engine] Querying Supabase database tables...');
+      
+      // 1. Query Profiles Table from Supabase
+      const profiles = await fetchProfilesFromSupabase();
+      if (profiles && Array.isArray(profiles) && profiles.length > 0) {
+        console.log(`✅ [Supabase Read Success] Received ${profiles.length} profiles from database.`);
+        setUsers(prevUsers => {
+          return prevUsers.map(u => {
+            const match = profiles.find(p => p.id === u.id);
+            if (match && (match.avatar_url || match.profile_pic_url)) {
+              const freshPic = match.avatar_url || match.profile_pic_url;
+              return {
+                ...u,
+                name: match.name || u.name,
+                email: match.email || u.email,
+                profilePicUrl: freshPic,
+                profilePic: freshPic,
+                avatarUrl: freshPic
+              };
+            }
+            return u;
+          });
+        });
       }
+
+      // 2. Query Announcements Table from Supabase
+      const dbAnnouncements = await fetchAnnouncementsFromSupabase();
+      if (dbAnnouncements && Array.isArray(dbAnnouncements) && dbAnnouncements.length > 0) {
+        console.log(`✅ [Supabase Read Success] Received ${dbAnnouncements.length} announcements from database.`);
+        const formattedAnnouncements = dbAnnouncements.map(a => ({
+          id: a.id,
+          authorId: a.author_id,
+          authorName: a.author_name || 'Mentor',
+          bootcampId: a.bootcamp_id || 'all',
+          title: a.title,
+          message: a.message,
+          createdAt: a.created_at,
+          isPinned: a.is_pinned ?? true
+        }));
+        setAnnouncements(formattedAnnouncements);
+      }
+
+      // 3. Query Submissions Table from Supabase
+      const dbSubmissions = await fetchSubmissionsFromSupabase();
+      if (dbSubmissions && Array.isArray(dbSubmissions) && dbSubmissions.length > 0) {
+        console.log(`✅ [Supabase Read Success] Received ${dbSubmissions.length} submissions from database.`);
+        const formattedSubmissions = dbSubmissions.map(s => ({
+          id: s.id,
+          studentId: s.student_id,
+          studentName: s.student_name,
+          githubUrl: s.github_url,
+          imageAttachment: s.media_url,
+          mediaFiles: s.media_url ? [s.media_url] : [],
+          roundName: s.round_name || 'Sprint Deliverable',
+          createdAt: s.created_at
+        }));
+        setSubmissions(formattedSubmissions);
+      }
+
     } catch (err) {
-      console.warn('Live cloud sync notice:', err);
+      console.warn('⚠️ [Supabase Database Fetch Warning]:', err);
     }
   };
 
-  // AUTOMATIC MULTI-DEVICE REALTIME CLOUD SYNC: Polling + Window Focus + Supabase Realtime
+  // AUTOMATIC MULTI-DEVICE REALTIME CLOUD SYNC: Supabase Realtime + Polling + Focus Event Listeners
   useEffect(() => {
     fetchLatestCloudDb();
 
@@ -241,14 +287,16 @@ const CLOUD_SYNC_ENDPOINT = 'https://jsonblob.com/api/jsonBlob/019fd29a-5c27-7bf
     window.addEventListener('focus', handleFocus);
     window.addEventListener('online', handleOnline);
 
-    // 3. Supabase Realtime Listener (Instant sync on any DB write)
+    // 3. Supabase Realtime WebSocket Listener (Subscribes to live DB inserts & updates)
     const realtimeChannel = supabase
-      .channel('powerhub-live-sync')
+      .channel('powerhub-live-sync-v2')
       .on('postgres_changes', { event: '*', schema: 'public' }, (payload) => {
         console.log('⚡ [Supabase Realtime Payload Received]', payload);
         fetchLatestCloudDb();
       })
-      .subscribe();
+      .subscribe((status) => {
+        console.log('⚡ [Supabase Realtime Channel Status]:', status);
+      });
 
     return () => {
       clearInterval(pollInterval);
@@ -261,8 +309,9 @@ const CLOUD_SYNC_ENDPOINT = 'https://jsonblob.com/api/jsonBlob/019fd29a-5c27-7bf
   // Manual Sync Cloud Database function
   const syncCloudDatabase = async () => {
     await fetchLatestCloudDb();
-    alert('☁️ Live Cloud Sync Complete! All device profiles, announcements, and submissions are up to date.');
+    alert('☁️ Live Supabase Cloud Sync Complete! All device profiles, announcements, and submissions are up to date.');
   };
+
 
 
   // UNIFIED AUTO-SAVE & MULTI-DEVICE CLOUD SYNC HOOK
@@ -669,9 +718,11 @@ const CLOUD_SYNC_ENDPOINT = 'https://jsonblob.com/api/jsonBlob/019fd29a-5c27-7bf
     };
 
     setSubmissions(prev => [newSub, ...prev]);
+    syncSubmissionToSupabase(newSub);
     toggleDailyHabit(currentUser.id, getISTDateDetails().todayStr, 'submitDone');
     return newSub;
   };
+
 
 
   const reviewSubmission = (submissionId, { status, skillRatingsObj, reviewNotes, isProject, isFirstSubmitter }) => {
