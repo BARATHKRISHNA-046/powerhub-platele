@@ -268,14 +268,14 @@ export const getISTDateDetails = () => {
 
 
 export const PASTEL_PALETTE = [
-  { bg: '#fbe9d1', border: '#fed7aa', text: '#9a4216' }, // Peach
-  { bg: '#cae6fe', border: '#bfdbfe', text: '#1e40af' }, // Blue
-  { bg: '#fffcd1', border: '#fef08a', text: '#854d0e' }, // Yellow
+  { bg: '#ffedd5', border: '#fed7aa', text: '#9a3412' }, // Soft Peach
+  { bg: '#e0f2fe', border: '#bae6fd', text: '#0369a1' }, // Sky Blue
+  { bg: '#fef9c3', border: '#fef08a', text: '#854d0e' }, // Warm Yellow
+  { bg: '#f3e8ff', border: '#e9d5ff', text: '#6b21a8' }, // Soft Lavender
+  { bg: '#fce7f3', border: '#fbcfe8', text: '#9d174d' }, // Soft Pink
+  { bg: '#ffe4e6', border: '#fecdd3', text: '#9f1239' }, // Coral Rose
   { bg: '#c9f6fc', border: '#a5f3fc', text: '#0e7490' }, // Cyan
-  { bg: '#c8d6fd', border: '#c7d2fe', text: '#3730a3' }, // Periwinkle
-  { bg: '#cbf5c7', border: '#bbf7d0', text: '#166534' }, // Light Green
-  { bg: '#fbcfe8', border: '#f9a8d4', text: '#9d174d' }, // Pink
-  { bg: '#a7f3d0', border: '#6ee7b7', text: '#065f46' }  // Mint
+  { bg: '#e0e7ff', border: '#c7d2fe', text: '#3730a3' }  // Periwinkle
 ];
 
 export const getPastelColorForDate = (dateStr) => {
@@ -289,7 +289,7 @@ export const getPastelColorForDate = (dateStr) => {
 
 export const generateCalendarDays = () => {
   const days = [];
-  // Loop through Aug 1, 2026 to Mar 31, 2027 (8 months)
+  // Loop through Aug 1, 2026 to Mar 31, 2027 (8 months / 243 days)
   const start = new Date(2026, 7, 1); // 7 = August (0-indexed)
   const end = new Date(2027, 2, 31);   // 2 = March
 
@@ -327,13 +327,9 @@ export const generateCalendarDays = () => {
   return days;
 };
 
-export const INITIAL_DAILY_HABIT_STATES = {
-  '2026-08-03': { studyDone: true, submitDone: false },
-  '2026-08-04': { studyDone: true, submitDone: false },
-  '2026-08-05': { studyDone: true, submitDone: false },
-  '2026-08-06': { studyDone: false, submitDone: false },
-  '2026-08-07': { studyDone: true, submitDone: false }
-};
+// CLEAN SCORE RESET: Start with 0 habit deductions so all students begin at 0 points
+export const INITIAL_DAILY_HABIT_STATES = {};
+
 
 export const MONTHLY_DAILY_SCHEDULES = generateCalendarDays();
 

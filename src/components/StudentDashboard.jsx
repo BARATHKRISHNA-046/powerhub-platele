@@ -1090,7 +1090,7 @@ export default function StudentDashboard() {
                   />
                 </div>
 
-                <div>
+                <div style={{ width: '100%', maxWidth: '100%', boxSizing: 'border-box', overflow: 'hidden' }}>
                   <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: '800', textTransform: 'uppercase', marginBottom: '0.35rem', color: '#334155' }}>
                     Optional Media Upload (Image or Video to Supabase Storage)
                   </label>
@@ -1098,14 +1098,35 @@ export default function StudentDashboard() {
                     type="file" 
                     accept="image/*,video/*"
                     onChange={e => setMediaFile(e.target.files?.[0] || null)}
-                    style={{ width: '100%', padding: '0.5rem', fontSize: '0.85rem', background: '#f8fafc', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-medium)' }}
+                    style={{ 
+                      width: '100%', 
+                      maxWidth: '100%',
+                      boxSizing: 'border-box', 
+                      padding: '0.5rem', 
+                      fontSize: '0.82rem', 
+                      background: '#f8fafc', 
+                      borderRadius: 'var(--radius-sm)', 
+                      border: '1px solid var(--border-medium)',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
+                    }}
                   />
                   {mediaFile && (
-                    <span style={{ fontSize: '0.75rem', color: '#059669', fontWeight: '700', marginTop: '0.25rem', display: 'block' }}>
+                    <span style={{ 
+                      fontSize: '0.75rem', 
+                      color: '#059669', 
+                      fontWeight: '700', 
+                      marginTop: '0.35rem', 
+                      display: 'block',
+                      wordBreak: 'break-all',
+                      overflowWrap: 'anywhere',
+                      maxWidth: '100%'
+                    }}>
                       📁 Selected for Supabase Storage: {mediaFile.name} ({(mediaFile.size / 1024 / 1024).toFixed(2)} MB)
                     </span>
                   )}
                 </div>
+
 
                 {submitError && (
                   <div style={{ padding: '0.65rem', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '6px', color: '#dc2626', fontSize: '0.82rem', fontWeight: '700' }}>
