@@ -25,7 +25,13 @@ const supabaseServiceKey =
   import.meta.env?.VITE_SUPABASE_SECRET_KEY || 
   '';
 
-console.log('[Supabase Client Init] Connecting with URL:', supabaseUrl ? `${supabaseUrl.substring(0, 25)}...` : 'NONE', 'Anon/Publishable Key Present:', Boolean(supabaseAnonKey));
+export const isSupabaseConfigured = Boolean(
+  supabaseUrl && 
+  supabaseAnonKey && 
+  !supabaseUrl.includes('your-project.supabase.co') && 
+  !supabaseUrl.includes('demo-powerhub') &&
+  supabaseUrl.startsWith('https://')
+);
 
 // 1. Browser-safe client using public ANON KEY or PUBLISHABLE KEY with Cache-Control headers
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
@@ -352,6 +358,206 @@ export async function fetchDailyHabitsFromSupabase() {
     console.warn('⚠️ [Supabase Fetch Daily Habits Exception]:', err.message);
     return null;
   }
+}
+
+/** Fetch student quick link click timestamps from Supabase */
+export async function fetchUserQuickLinksFromSupabase(studentId) {
+  const defaultState = {
+    drive: localStorage.getItem(`ph_ql_drive_${studentId}`) || null,
+    classroom: localStorage.getItem(`ph_ql_classroom_${studentId}`) || null,
+    community: localStorage.getItem(`ph_ql_community_${studentId}`) || null
+  };
+
+  if (!isSupabaseConfigured) {
+    return defaultState;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('user_quick_links')
+      .select('*')
+      .eq('student_id', studentId)
+      .maybeSingle();
+
+    if (error || !data) {
+      return defaultState;
+    }
+
+    return {
+      drive: data.drive || defaultState.drive,
+      classroom: data.classroom || defaultState.classroom,
+      community: data.community || defaultState.community
+    };
+  } catch (err) {
+    return defaultState;
+  }
+}
+
+/** Save student quick link click timestamp in Supabase */
+export async function saveUserQuickLinkClickInSupabase(studentId, linkKey) {
+  const now = new Date().toISOString();
+  
+  // Always update localStorage as instant fallback
+  localStorage.setItem(`ph_ql_${linkKey}_${studentId}`, now);
+
+  if (isSupabaseConfigured) {
+    try {
+      const { data, error } = await supabase
+        .from('user_quick_links')
+        .upsert({
+          student_id: studentId,
+          [linkKey]: now,
+          updated_at: now
+        }, { onConflict: 'student_id' })
+        .select()
+        .single();
+
+      if (!error && data) {
+        return {
+          drive: data.drive || null,
+          classroom: data.classroom || null,
+          community: data.community || null
+        };
+      }
+    } catch (err) {
+      console.warn('Failed to persist quick link to Supabase:', err);
+    }
+  }
+
+  const current = await fetchUserQuickLinksFromSupabase(studentId);
+  return { ...current, [linkKey]: now };
+}
+
+export const INITIAL_TECH_NEWS = [
+  {
+    id: 'news-1',
+    headline: 'Major AI Cloud Provider Announces 500+ New Fullstack & Infra Engineer Openings',
+    summary: 'Expanding global engineering hubs with heavy hiring across distributed systems and Vite/React frontends.',
+    source: 'TechCrunch',
+    category: 'hiring',
+    url: 'https://techcrunch.com',
+    published_at: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
+    fetched_at: new Date().toISOString()
+  },
+  {
+    id: 'news-2',
+    headline: 'Global Tech Enterprise Restructures Legacy Divisions to Focus on Edge AI',
+    summary: 'Reallocating software talent to autonomous systems and embedded micro-architectures.',
+    source: 'The Verge',
+    category: 'layoff',
+    url: 'https://theverge.com',
+    published_at: new Date(Date.now() - 5 * 3600 * 1000).toISOString(),
+    fetched_at: new Date().toISOString()
+  },
+  {
+    id: 'news-3',
+    headline: 'Automotive & Autonomous Vehicle Giant Opens 200+ Embedded IoT Positions',
+    summary: 'Massive recruitment drive for CAN Bus, AUTOSAR, and C++ firmware engineers.',
+    source: 'Business Insider',
+    category: 'opening',
+    url: 'https://businessinsider.com',
+    published_at: new Date(Date.now() - 8 * 3600 * 1000).toISOString(),
+    fetched_at: new Date().toISOString()
+  },
+  {
+    id: 'news-4',
+    headline: 'Fintech Unicorn Expands India R&D Hub with 150 Senior & Junior Software Roles',
+    summary: 'Actively recruiting fullstack React developers and backend microservices engineers.',
+    source: 'Reuters Tech',
+    category: 'hiring',
+    url: 'https://reuters.com/technology',
+    published_at: new Date(Date.now() - 14 * 3600 * 1000).toISOString(),
+    fetched_at: new Date().toISOString()
+  },
+  {
+    id: 'news-5',
+    headline: 'Silicon Valley Semiconductor Leader Hires 300+ Embedded Systems Engineers',
+    summary: 'Scaling next-gen SoC development and RISC-V firmware teams globally.',
+    source: 'VentureBeat',
+    category: 'opening',
+    url: 'https://venturebeat.com',
+    published_at: new Date(Date.now() - 22 * 3600 * 1000).toISOString(),
+    fetched_at: new Date().toISOString()
+  }
+];
+
+export async function fetchTechNewsFromSupabase() {
+  if (!isSupabaseConfigured) {
+    return INITIAL_TECH_NEWS;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('tech_news')
+      .select('*')
+      .order('published_at', { ascending: false })
+      .limit(10);
+
+    if (error || !data || data.length === 0) {
+      await supabase.from('tech_news').upsert(INITIAL_TECH_NEWS);
+      return INITIAL_TECH_NEWS;
+    }
+
+    return data;
+  } catch (err) {
+    return INITIAL_TECH_NEWS;
+  }
+}
+
+export async function syncTechNewsInSupabase(articles) {
+  if (isSupabaseConfigured && articles && articles.length > 0) {
+    try {
+      await supabase.from('tech_news').upsert(articles);
+    } catch (err) {
+      console.warn('Failed to upsert tech_news to Supabase:', err);
+    }
+  }
+  return articles;
+}
+
+export const INITIAL_CERTIFICATES = [
+  {
+    id: 'cert-1',
+    student_id: 'user-barath-001',
+    student_name: 'Barath Krishna H',
+    domain: 'FULLSTACK',
+    program_title: 'Fullstack & AI Engineering 7-Month Program Completion',
+    issued_at: new Date().toISOString(),
+    mentor_signature: 'Barath Krishna (Lead Mentor & Engineering Director)',
+    verification_id: 'PH-CERT-2026-X89B2Q'
+  }
+];
+
+export async function fetchCertificatesFromSupabase(studentId) {
+  if (!isSupabaseConfigured) {
+    return studentId ? INITIAL_CERTIFICATES.filter(c => c.student_id === studentId) : INITIAL_CERTIFICATES;
+  }
+
+  try {
+    let query = supabase.from('certificates').select('*').order('issued_at', { ascending: false });
+    if (studentId) {
+      query = query.eq('student_id', studentId);
+    }
+    const { data, error } = await query;
+    if (error || !data || data.length === 0) {
+      return INITIAL_CERTIFICATES;
+    }
+    return data;
+  } catch (err) {
+    return INITIAL_CERTIFICATES;
+  }
+}
+
+export async function issueCertificateInSupabase(cert) {
+  if (isSupabaseConfigured) {
+    try {
+      const { data, error } = await supabase.from('certificates').upsert(cert).select().single();
+      if (!error && data) return data;
+    } catch (err) {
+      console.warn('Failed to save certificate in Supabase:', err);
+    }
+  }
+  return cert;
 }
 
 

@@ -5,6 +5,8 @@ import ProfilePicker from './components/ProfilePicker';
 import Navbar from './components/Navbar';
 import StudentDashboard from './components/StudentDashboard';
 import MentorDashboard from './components/MentorDashboard';
+import PublicVerifyView from './components/PublicVerifyView';
+import PublicPortfolioView from './components/PublicPortfolioView';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -84,8 +86,46 @@ class ErrorBoundary extends React.Component {
 }
 
 
+import PublicResumeView from './components/PublicResumeView';
+import PowerhubMascot from './components/PowerhubMascot';
+import ProfileSetupModal from './components/ProfileSetupModal';
+import UserProfileModal from './components/UserProfileModal';
+
+import HackathonModule from './components/HackathonModule';
+
 function MainLayout() {
-  const { authScreen, currentRoleView } = useApp();
+  const { 
+    authScreen, 
+    currentRoleView, 
+    currentUser,
+    showProfileSetupModal, 
+    pendingSetupProfile, 
+    handleCompleteStudentSetup, 
+    showUserProfileModal, 
+    setShowUserProfileModal,
+    calculateStudentStreak,
+    calculateStudentScore,
+    activeTopTab
+  } = useApp();
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const shareResumeUserId = urlParams.get('shareResume');
+  if (shareResumeUserId) {
+    return <PublicResumeView userId={shareResumeUserId} />;
+  }
+
+  const pathName = window.location.pathname;
+  const matchVerify = pathName.match(/\/verify\/([^/]+)/);
+  const verifyCertId = matchVerify ? matchVerify[1] : urlParams.get('verifyCert');
+  if (verifyCertId) {
+    return <PublicVerifyView initialCertId={verifyCertId} onBack={() => { window.location.href = '/'; }} />;
+  }
+
+  const matchPortfolio = pathName.match(/\/portfolio\/([^/]+)/);
+  const portfolioUsername = matchPortfolio ? matchPortfolio[1] : urlParams.get('portfolio');
+  if (portfolioUsername) {
+    return <PublicPortfolioView username={portfolioUsername} />;
+  }
 
   if (authScreen === 'login') {
     return <LoginView />;
@@ -99,8 +139,31 @@ function MainLayout() {
     <div className="app-container">
       <Navbar />
       <main className="main-content">
-        {currentRoleView === 'student' ? <StudentDashboard /> : <MentorDashboard />}
+        {activeTopTab === 'hackathon' ? (
+          <HackathonModule />
+        ) : currentRoleView === 'student' ? (
+          <StudentDashboard />
+        ) : (
+          <MentorDashboard />
+        )}
       </main>
+      <PowerhubMascot />
+
+      {showProfileSetupModal && (
+        <ProfileSetupModal 
+          profile={pendingSetupProfile || currentUser} 
+          onCompleteSetup={handleCompleteStudentSetup} 
+        />
+      )}
+
+      {showUserProfileModal && (
+        <UserProfileModal 
+          profile={currentUser} 
+          onClose={() => setShowUserProfileModal(false)}
+          myStreak={calculateStudentStreak ? calculateStudentStreak(currentUser?.id) : 0}
+          totalScore={calculateStudentScore ? calculateStudentScore(currentUser?.id) : 0}
+        />
+      )}
     </div>
   );
 }

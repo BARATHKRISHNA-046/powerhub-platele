@@ -10,6 +10,7 @@ import {
   INITIAL_GOOGLE_MEET_CONFIG,
   INITIAL_GOOGLE_DRIVE_URL,
   INITIAL_GOOGLE_CLASSROOM_URL,
+  INITIAL_COMMUNITY_HUB_URL,
   INITIAL_RESUME_PROFILES,
   SCHEDULE_MONTHS,
   MONTHLY_DAILY_SCHEDULES,
@@ -21,6 +22,19 @@ import {
   BATCHES,
   MILESTONE_BADGES
 } from '../data/mockData';
+import { INITIAL_INTERVIEW_QUESTIONS } from '../data/interviewQuestions';
+import {
+  logAutomationAction,
+  autoTickSubmissionCalendar,
+  recordPointsLedgerEntry,
+  calculateTotalPointsFromLedger,
+  recalculateStudentStreak,
+  checkAndAwardMilestoneBadges,
+  checkConsecutiveMissesAndAlertMentor,
+  createMentorFeedbackNotification,
+  checkAndNotifyRankChange,
+  validateAndFlagDuplicateGithub
+} from '../lib/automationEngine';
 import { 
   supabase, 
   syncProfileToSupabase, 
@@ -34,15 +48,23 @@ import {
   fetchAnnouncementsFromSupabase,
   fetchTeamsFromSupabase,
   fetchSubmissionsFromSupabase,
-  fetchDailyHabitsFromSupabase
+  fetchDailyHabitsFromSupabase,
+  fetchUserQuickLinksFromSupabase,
+  saveUserQuickLinkClickInSupabase,
+  fetchTechNewsFromSupabase,
+  syncTechNewsInSupabase,
+  fetchCertificatesFromSupabase,
+  issueCertificateInSupabase,
+  isSupabaseConfigured
 } from '../lib/supabase';
+import { isMentorEmail, fetchOrCreateUserProfile, signOutUser } from '../lib/authService';
 
 
 
 
 
 
-const AppContext = createContext();
+const AppContext = createContext({});
 
 const DB_STORAGE_KEY = 'POWERHUB_PERMANENT_DB_V11';
 
@@ -98,25 +120,16 @@ export const compressImageFile = (file, maxWidth = 280, maxHeight = 280, quality
 };
 
 export const AppProvider = ({ children }) => {
+  const savedDb = loadSavedDatabase();
 
-  // Users State (initialized from seed, populated live from Supabase)
-  const [users, setUsers] = useState(INITIAL_USERS);
-
-  // Teams State (populated live from Supabase)
-  const [teams, setTeams] = useState([]);
-
-  // Submissions State (populated live from Supabase)
-  const [submissions, setSubmissions] = useState([]);
-
-  // Skill Ratings State
-  const [skillRatings, setSkillRatings] = useState([]);
-
-  // Announcements State (populated live from Supabase)
-  const [announcements, setAnnouncements] = useState([]);
-
-  // Audit Logs State
-  const [auditLogs, setAuditLogs] = useState([]);
-
+  // Primary State declarations with localStorage initialization fallback
+  const [users, setUsers] = useState(() => (savedDb?.users || INITIAL_USERS));
+  const [teams, setTeams] = useState(() => (savedDb?.teams || INITIAL_TEAMS));
+  const [submissions, setSubmissions] = useState(() => (savedDb?.submissions || INITIAL_SUBMISSIONS));
+  const [skillRatings, setSkillRatings] = useState(() => (savedDb?.skillRatings || INITIAL_SKILL_RATINGS));
+  const [announcements, setAnnouncements] = useState(() => (savedDb?.announcements || INITIAL_ANNOUNCEMENTS));
+  const [auditLogs, setAuditLogs] = useState(() => (savedDb?.auditLogs || INITIAL_AUDIT_LOGS));
+  const [deletedAnnIds, setDeletedAnnIds] = useState(() => new Set(savedDb?.deletedAnnIds || []));
 
   // Resume Profiles State
   const [resumeProfiles, setResumeProfiles] = useState(() => {
@@ -124,6 +137,12 @@ export const AppProvider = ({ children }) => {
       return { ...INITIAL_RESUME_PROFILES, ...savedDb.resumeProfiles };
     }
     return INITIAL_RESUME_PROFILES;
+  });
+
+  // Manual Mentor Assigned Marks State (Overrides automated score when set)
+  const [manualMentorMarks, setManualMentorMarks] = useState(() => {
+    if (savedDb && savedDb.manualMentorMarks) return savedDb.manualMentorMarks;
+    return {};
   });
 
   // Google Meet Config State
@@ -142,6 +161,12 @@ export const AppProvider = ({ children }) => {
   const [googleClassroomUrl, setGoogleClassroomUrl] = useState(() => {
     if (savedDb && savedDb.googleClassroomUrl) return savedDb.googleClassroomUrl;
     return INITIAL_GOOGLE_CLASSROOM_URL;
+  });
+
+  // Community Hub (WhatsApp Group/Chat URL) State
+  const [communityHubUrl, setCommunityHubUrl] = useState(() => {
+    if (savedDb && savedDb.communityHubUrl) return savedDb.communityHubUrl;
+    return INITIAL_COMMUNITY_HUB_URL;
   });
 
   // Monthly Habits Persistence State keyed by YYYY-MM-DD
@@ -170,14 +195,11 @@ export const AppProvider = ({ children }) => {
     };
   });
 
-
   const [currentUserId, setCurrentUserId] = useState(() => {
     return localStorage.getItem('ph_active_user_id') || 'user-barath';
   });
   const [authScreen, setAuthScreen] = useState('profile_picker');
-
   const [currentRoleView, setCurrentRoleView] = useState('student');
-
 
   const [notifications, setNotifications] = useState([
     {
@@ -187,21 +209,179 @@ export const AppProvider = ({ children }) => {
       timestamp: 'Today, 11:00 PM',
       type: 'submit_reminder',
       isRead: false
-
     }
   ]);
 
-  // DIRECT SUPABASE DATABASE READ & LIVE SYNC FUNCTION
+  // Automation Engine States (Points Ledger & System Audit Logs)
+  const [pointsLedger, setPointsLedger] = useState(() => (savedDb?.pointsLedger || []));
+  const [automationLogs, setAutomationLogs] = useState(() => (savedDb?.automationLogs || []));
+  const [pushSubscriptions, setPushSubscriptions] = useState(() => (savedDb?.pushSubscriptions || []));
+  const [notificationLogs, setNotificationLogs] = useState(() => (savedDb?.notificationLogs || []));
+
+  // BroadcastChannel Ref for zero-delay cross-tab/window real-time synchronization
+  const broadcastRef = React.useRef(null);
+
+  const saveAndBroadcastState = React.useCallback(async (stateChunk) => {
+    try {
+      const currentStorage = loadSavedDatabase() || {};
+      const updated = {
+        ...currentStorage,
+        ...stateChunk,
+        deletedAnnIds: stateChunk.deletedAnnIds ? Array.from(stateChunk.deletedAnnIds) : (currentStorage.deletedAnnIds || [])
+      };
+      localStorage.setItem(DB_STORAGE_KEY, JSON.stringify(updated));
+
+      if (broadcastRef.current) {
+        broadcastRef.current.postMessage({ type: 'POWERHUB_REALTIME_SYNC', payload: stateChunk });
+      }
+
+      // Sync to Server Relay / API endpoint (/api/sync) for cross-device & cross-origin sync
+      try {
+        await fetch('/api/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updated)
+        });
+      } catch (err) {}
+
+    } catch (e) {
+      console.warn('Failed to broadcast realtime state update:', e);
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      broadcastRef.current = new BroadcastChannel('powerhub_realtime_sync_v4');
+      broadcastRef.current.onmessage = (event) => {
+        if (event.data && event.data.type === 'POWERHUB_REALTIME_SYNC') {
+          const p = event.data.payload;
+          if (p.announcements) setAnnouncements(p.announcements);
+          if (p.teams) setTeams(p.teams);
+          if (p.submissions) setSubmissions(p.submissions);
+          if (p.users) setUsers(p.users);
+          if (p.dailyHabitStates) setDailyHabitStates(p.dailyHabitStates);
+          if (p.mentorFeedbacks) setMentorFeedbacks(p.mentorFeedbacks);
+          if (p.pointsLedger) setPointsLedger(p.pointsLedger);
+          if (p.automationLogs) setAutomationLogs(p.automationLogs);
+          if (p.deletedAnnIds) setDeletedAnnIds(new Set(p.deletedAnnIds));
+          if (p.problemStatements) setProblemStatements(p.problemStatements);
+          if (p.hackathonTeams) setHackathonTeams(p.hackathonTeams);
+          if (p.teamMembers) setTeamMembers(p.teamMembers);
+          if (p.ideaSubmissions) setIdeaSubmissions(p.ideaSubmissions);
+          if (p.isSihLocked !== undefined) setIsSihLocked(p.isSihLocked);
+        }
+      };
+    } catch (err) {}
+
+    const handleStorageChange = (e) => {
+      if (e.key === DB_STORAGE_KEY && e.newValue) {
+        try {
+          const p = JSON.parse(e.newValue);
+          if (p.announcements) setAnnouncements(p.announcements);
+          if (p.teams) setTeams(p.teams);
+          if (p.submissions) setSubmissions(p.submissions);
+          if (p.users) setUsers(p.users);
+          if (p.dailyHabitStates) setDailyHabitStates(p.dailyHabitStates);
+          if (p.mentorFeedbacks) setMentorFeedbacks(p.mentorFeedbacks);
+          if (p.pointsLedger) setPointsLedger(p.pointsLedger);
+          if (p.automationLogs) setAutomationLogs(p.automationLogs);
+          if (p.deletedAnnIds) setDeletedAnnIds(new Set(p.deletedAnnIds));
+          if (p.problemStatements) setProblemStatements(p.problemStatements);
+          if (p.hackathonTeams) setHackathonTeams(p.hackathonTeams);
+          if (p.teamMembers) setTeamMembers(p.teamMembers);
+          if (p.ideaSubmissions) setIdeaSubmissions(p.ideaSubmissions);
+          if (p.isSihLocked !== undefined) setIsSihLocked(p.isSihLocked);
+        } catch (err) {}
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      if (broadcastRef.current) broadcastRef.current.close();
+    };
+  }, []);
+
+  // DIRECT SUPABASE DATABASE READ & LIVE SYNC FUNCTION WITH SMART MERGE & SERVER RELAY
   const fetchLatestCloudDb = async () => {
     try {
-      console.log('🔄 [Supabase Sync Engine] Querying Supabase database tables...');
+      // 0. Query Server Relay API (/api/sync) for cross-origin / cross-device live sync
+      try {
+        const syncRes = await fetch('/api/sync');
+        if (syncRes.ok) {
+          const syncJson = await syncRes.json();
+          if (syncJson.success && syncJson.data) {
+            const serverData = syncJson.data;
+            if (serverData.announcements && Array.isArray(serverData.announcements)) {
+              setAnnouncements(prevLocal => {
+                const mergedMap = new Map();
+                prevLocal.forEach(a => { if (!deletedAnnIds.has(a.id)) mergedMap.set(a.id, a); });
+                serverData.announcements.forEach(a => { if (!deletedAnnIds.has(a.id)) mergedMap.set(a.id, a); });
+                return Array.from(mergedMap.values()).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+              });
+            }
+            if (serverData.teams && Array.isArray(serverData.teams)) {
+              setTeams(prevLocal => {
+                const mergedMap = new Map();
+                prevLocal.forEach(t => mergedMap.set(t.id, t));
+                serverData.teams.forEach(t => mergedMap.set(t.id, t));
+                return Array.from(mergedMap.values());
+              });
+            }
+            if (serverData.submissions && Array.isArray(serverData.submissions)) {
+              setSubmissions(prevLocal => {
+                const mergedMap = new Map();
+                prevLocal.forEach(s => mergedMap.set(s.id, s));
+                serverData.submissions.forEach(s => mergedMap.set(s.id, s));
+                return Array.from(mergedMap.values()).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+              });
+            }
+            if (serverData.dailyHabitStates) {
+              setDailyHabitStates(prev => ({ ...prev, ...serverData.dailyHabitStates }));
+            }
+            if (serverData.mentorFeedbacks) {
+              setMentorFeedbacks(prev => ({ ...prev, ...serverData.mentorFeedbacks }));
+            }
+            if (serverData.deletedAnnIds) {
+              setDeletedAnnIds(new Set(serverData.deletedAnnIds));
+            }
+            if (serverData.users && Array.isArray(serverData.users)) {
+              setUsers(prev => {
+                const updatedUsers = [...prev];
+                serverData.users.forEach(u => {
+                  const idx = updatedUsers.findIndex(existing => existing.id === u.id);
+                  if (idx !== -1) {
+                    updatedUsers[idx] = { ...updatedUsers[idx], ...u };
+                  } else {
+                    updatedUsers.push(u);
+                  }
+                });
+                return updatedUsers;
+              });
+            }
+            if (serverData.problemStatements && Array.isArray(serverData.problemStatements)) {
+              setProblemStatements(serverData.problemStatements);
+            }
+            if (serverData.hackathonTeams && Array.isArray(serverData.hackathonTeams)) {
+              setHackathonTeams(serverData.hackathonTeams);
+            }
+            if (serverData.teamMembers && Array.isArray(serverData.teamMembers)) {
+              setTeamMembers(serverData.teamMembers);
+            }
+            if (serverData.ideaSubmissions && Array.isArray(serverData.ideaSubmissions)) {
+              setIdeaSubmissions(serverData.ideaSubmissions);
+            }
+            if (serverData.isSihLocked !== undefined) {
+              setIsSihLocked(Boolean(serverData.isSihLocked));
+            }
+          }
+        }
+      } catch (err) {}
       
       // 1. Query Profiles Table from Supabase
       const profiles = await fetchProfilesFromSupabase();
       if (profiles && Array.isArray(profiles) && profiles.length > 0) {
-        console.log(`✅ [Supabase Read Success] Received ${profiles.length} profiles from database.`);
         setUsers(prevUsers => {
-          // Merge Supabase profiles over existing users, adding new remote users if created on another device
           const updatedUsers = [...prevUsers];
           profiles.forEach(p => {
             const index = updatedUsers.findIndex(u => u.id === p.id);
@@ -220,7 +400,6 @@ export const AppProvider = ({ children }) => {
                 bio: p.bio || updatedUsers[index].bio
               };
             } else {
-              // Add new student/user created on another device
               updatedUsers.push({
                 id: p.id,
                 name: p.name || 'New Student',
@@ -235,14 +414,14 @@ export const AppProvider = ({ children }) => {
               });
             }
           });
+          saveAndBroadcastState({ users: updatedUsers });
           return updatedUsers;
         });
       }
 
-      // 2. Query Announcements Table from Supabase
+      // 2. Query Announcements Table from Supabase (Smart Merge)
       const dbAnnouncements = await fetchAnnouncementsFromSupabase();
       if (dbAnnouncements && Array.isArray(dbAnnouncements)) {
-        console.log(`✅ [Supabase Read Success] Received ${dbAnnouncements.length} announcements from database.`);
         const formattedAnnouncements = dbAnnouncements.map(a => ({
           id: a.id,
           authorId: a.author_id,
@@ -253,13 +432,26 @@ export const AppProvider = ({ children }) => {
           createdAt: a.created_at,
           isPinned: a.is_pinned ?? true
         }));
-        setAnnouncements(formattedAnnouncements);
+
+        setAnnouncements(prevLocal => {
+          const mergedMap = new Map();
+          prevLocal.forEach(a => {
+            if (!deletedAnnIds.has(a.id)) mergedMap.set(a.id, a);
+          });
+          formattedAnnouncements.forEach(a => {
+            if (!deletedAnnIds.has(a.id)) mergedMap.set(a.id, a);
+          });
+          const result = Array.from(mergedMap.values()).sort(
+            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+          saveAndBroadcastState({ announcements: result });
+          return result;
+        });
       }
 
       // 3. Query Teams Table from Supabase
       const dbTeams = await fetchTeamsFromSupabase();
       if (dbTeams && Array.isArray(dbTeams)) {
-        console.log(`✅ [Supabase Read Success] Received ${dbTeams.length} teams from database.`);
         const formattedTeams = dbTeams.map(t => ({
           id: t.id,
           name: t.name,
@@ -268,13 +460,19 @@ export const AppProvider = ({ children }) => {
           githubUrl: t.github_url || '',
           createdAt: t.created_at
         }));
-        setTeams(formattedTeams);
+        setTeams(prevLocal => {
+          const mergedMap = new Map();
+          prevLocal.forEach(t => mergedMap.set(t.id, t));
+          formattedTeams.forEach(t => mergedMap.set(t.id, t));
+          const result = Array.from(mergedMap.values());
+          saveAndBroadcastState({ teams: result });
+          return result;
+        });
       }
 
       // 4. Query Submissions Table from Supabase
       const dbSubmissions = await fetchSubmissionsFromSupabase();
       if (dbSubmissions && Array.isArray(dbSubmissions)) {
-        console.log(`✅ [Supabase Read Success] Received ${dbSubmissions.length} submissions from database.`);
         const formattedSubmissions = dbSubmissions.map(s => ({
           id: s.id,
           studentId: s.student_id,
@@ -286,13 +484,21 @@ export const AppProvider = ({ children }) => {
           isProject: Boolean(s.is_project),
           createdAt: s.created_at
         }));
-        setSubmissions(formattedSubmissions);
+        setSubmissions(prevLocal => {
+          const mergedMap = new Map();
+          prevLocal.forEach(s => mergedMap.set(s.id, s));
+          formattedSubmissions.forEach(s => mergedMap.set(s.id, s));
+          const result = Array.from(mergedMap.values()).sort(
+            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+          saveAndBroadcastState({ submissions: result });
+          return result;
+        });
       }
 
       // 5. Query Daily Habits Table from Supabase
       const dbHabits = await fetchDailyHabitsFromSupabase();
       if (dbHabits && Array.isArray(dbHabits)) {
-        console.log(`✅ [Supabase Read Success] Received ${dbHabits.length} daily habit records from database.`);
         setDailyHabitStates(prev => {
           const updated = { ...prev };
           dbHabits.forEach(h => {
@@ -303,6 +509,7 @@ export const AppProvider = ({ children }) => {
               };
             }
           });
+          saveAndBroadcastState({ dailyHabitStates: updated });
           return updated;
         });
       }
@@ -372,25 +579,608 @@ export const AppProvider = ({ children }) => {
 
   const currentUser = (users && users.length > 0) ? (users.find(u => u.id === currentUserId) || users[0]) : DEFAULT_FALLBACK_USER;
 
+  // Student Quick Links Timestamps (Per Student Supabase & LocalSync)
+  const [userQuickLinks, setUserQuickLinks] = useState({ drive: null, classroom: null, community: null });
+
+  useEffect(() => {
+    if (currentUser?.id) {
+      fetchUserQuickLinksFromSupabase(currentUser.id).then(links => {
+        if (links) setUserQuickLinks(links);
+      });
+    }
+  }, [currentUser?.id]);
+
+  const trackQuickLinkClick = async (linkKey) => {
+    if (!currentUser?.id) return;
+    const updated = await saveUserQuickLinkClickInSupabase(currentUser.id, linkKey);
+    setUserQuickLinks(updated);
+    saveAndBroadcastState({ userQuickLinks: updated });
+  };
+
+  // Tech Industry Pulse Daily News State
+  const [techNews, setTechNews] = useState([]);
+
+  const refreshTechNews = React.useCallback(async () => {
+    try {
+      const items = await fetchTechNewsFromSupabase();
+      if (items && items.length > 0) {
+        setTechNews(items);
+      }
+    } catch (err) {
+      console.warn('Failed to load tech news feed:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshTechNews();
+  }, [refreshTechNews]);
+
+  // Auto-Certificates State & Issue Function
+  const [certificates, setCertificates] = useState([]);
+
+  useEffect(() => {
+    fetchCertificatesFromSupabase().then(certs => {
+      if (certs) setCertificates(certs);
+    });
+  }, []);
+
+  const issueCertificate = async (studentId, programTitle, mentorSignatureStr) => {
+    const student = users.find(u => u.id === studentId);
+    if (!student) return null;
+
+    const randomSuffix = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const certId = `cert-${Date.now()}`;
+    const verificationId = `PH-CERT-2026-${randomSuffix}`;
+
+    const newCert = {
+      id: certId,
+      student_id: studentId,
+      student_name: student.name,
+      domain: student.domain || 'FULLSTACK',
+      program_title: programTitle || `${student.domain || 'Fullstack'} Program Completion`,
+      issued_at: new Date().toISOString(),
+      mentor_signature: mentorSignatureStr || `${currentUser?.name || 'Lead Mentor'} (Powerhub Engineering)`,
+      verification_id: verificationId
+    };
+
+    setCertificates(prev => [newCert, ...prev]);
+    await issueCertificateInSupabase(newCert);
+    saveAndBroadcastState({ certificates: [newCert, ...certificates] });
+
+    logAutomationAction(
+      `🏅 Auto-Certificate Issued to ${student.name} (${verificationId})`,
+      currentUser?.id || 'mentor',
+      currentUser?.name || 'Mentor'
+    );
+
+    return newCert;
+  };
+
+  // Feature #3: Interview Prep & Mock Interview Booking State
+  const [interviewQuestions] = useState(INITIAL_INTERVIEW_QUESTIONS);
+  const [mockInterviews, setMockInterviews] = useState(() => {
+    if (savedDb && savedDb.mockInterviews) return savedDb.mockInterviews;
+    return [
+      {
+        id: 'mock-1',
+        student_id: 'user-barath-001',
+        student_name: 'Barath Krishna H',
+        mentor_id: 'barathkrishna046@gmail.com',
+        mentor_name: 'Barath Krishna (Lead Mentor)',
+        domain: 'FULLSTACK',
+        requested_at: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
+        scheduled_at: new Date(Date.now() + 2 * 24 * 3600 * 1000).toISOString(),
+        status: 'scheduled'
+      }
+    ];
+  });
+
+  const bookMockInterview = (requestedSlotStr, notesStr) => {
+    if (!currentUser?.id) return null;
+    const newBooking = {
+      id: `mock-${Date.now()}`,
+      student_id: currentUser.id,
+      student_name: currentUser.name || 'Student',
+      mentor_id: 'barathkrishna046@gmail.com',
+      mentor_name: 'Barath Krishna (Lead Mentor)',
+      domain: currentUser.domain || 'FULLSTACK',
+      requested_at: new Date().toISOString(),
+      scheduled_at: requestedSlotStr || new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
+      notes: notesStr || 'General Technical & System Design Practice',
+      status: 'requested'
+    };
+
+    setMockInterviews(prev => [newBooking, ...prev]);
+    saveAndBroadcastState({ mockInterviews: [newBooking, ...mockInterviews] });
+    return newBooking;
+  };
+
+  const updateMockInterviewStatus = (mockId, statusStr, scheduledTimeStr) => {
+    setMockInterviews(prev => prev.map(m => {
+      if (m.id === mockId) {
+        return { 
+          ...m, 
+          status: statusStr, 
+          scheduled_at: scheduledTimeStr || m.scheduled_at 
+        };
+      }
+      return m;
+    }));
+    saveAndBroadcastState({ mockInterviews: mockInterviews.map(m => m.id === mockId ? { ...m, status: statusStr, scheduled_at: scheduledTimeStr || m.scheduled_at } : m) });
+  };
+
+  // Feature #4: Peer Code Review State & Actions
+  const [peerReviews, setPeerReviews] = useState(() => {
+    if (savedDb && savedDb.peerReviews) return savedDb.peerReviews;
+    return [
+      {
+        id: 'pr-1',
+        submission_id: 'sub-sample-1',
+        reviewer_id: 'user-barath-001',
+        reviewer_name: 'Barath Krishna H',
+        submitter_id: 'user-navin',
+        submitter_name: 'Navin Kumar',
+        github_url: 'https://github.com/navinkumar/react-powerhub',
+        feedback_text: 'Excellent component separation, clean prop types, and responsive layout!',
+        checklist_json: { codeRuns: true, namingConventions: true, readmeClear: true },
+        created_at: new Date().toISOString()
+      }
+    ];
+  });
+
+  const submitPeerReview = (submissionId, submitterId, submitterName, githubUrl, feedbackText, checklistObj) => {
+    if (!currentUser?.id) return null;
+    const newReview = {
+      id: `pr-${Date.now()}`,
+      submission_id: submissionId,
+      reviewer_id: currentUser.id,
+      reviewer_name: currentUser.name || 'Peer Reviewer',
+      submitter_id: submitterId,
+      submitter_name: submitterName,
+      github_url: githubUrl,
+      feedback_text: feedbackText,
+      checklist_json: checklistObj || { codeRuns: true, namingConventions: true, readmeClear: true },
+      created_at: new Date().toISOString()
+    };
+
+    setPeerReviews(prev => [newReview, ...prev]);
+    saveAndBroadcastState({ peerReviews: [newReview, ...peerReviews] });
+
+    logAutomationAction(
+      `⭐ Peer Code Review Completed by ${currentUser.name} for ${submitterName} (+2 Pts Bonus)`,
+      currentUser.id,
+      currentUser.name
+    );
+
+    return newReview;
+  };
+
+  // Feature #5: Monthly Hackathons / Coding Contests State & Actions
+  const [hackathons, setHackathons] = useState(() => {
+    if (savedDb && savedDb.hackathons) return savedDb.hackathons;
+    return [
+      {
+        id: 'hack-1',
+        title: 'Powerhub August Autonomous AI & Fullstack Buildathon',
+        description: 'Build production-ready web apps or AI agents within 48 hours. Top 3 teams win global points bonuses!',
+        start_at: new Date(Date.now() - 12 * 3600 * 1000).toISOString(),
+        end_at: new Date(Date.now() + 36 * 3600 * 1000).toISOString(),
+        is_team_based: true,
+        created_by: 'barathkrishna046@gmail.com',
+        participants: ['user-barath-001', 'user-navin', 'user-kanika'],
+        winners: null,
+        status: 'active'
+      }
+    ];
+  });
+
+  const createHackathon = (title, description, startAt, endAt, isTeamBased) => {
+    const newHack = {
+      id: `hack-${Date.now()}`,
+      title,
+      description,
+      start_at: startAt || new Date().toISOString(),
+      end_at: endAt || new Date(Date.now() + 48 * 3600 * 1000).toISOString(),
+      is_team_based: Boolean(isTeamBased),
+      created_by: currentUser?.id || 'mentor',
+      participants: [],
+      winners: null,
+      status: 'active'
+    };
+
+    setHackathons(prev => [newHack, ...prev]);
+    saveAndBroadcastState({ hackathons: [newHack, ...hackathons] });
+    return newHack;
+  };
+
+  const joinHackathon = (hackathonId) => {
+    if (!currentUser?.id) return;
+    setHackathons(prev => prev.map(h => {
+      if (h.id === hackathonId && !h.participants.includes(currentUser.id)) {
+        return { ...h, participants: [...h.participants, currentUser.id] };
+      }
+      return h;
+    }));
+    saveAndBroadcastState({ hackathons: hackathons.map(h => h.id === hackathonId && !h.participants.includes(currentUser.id) ? { ...h, participants: [...h.participants, currentUser.id] } : h) });
+  };
+
+  // Top Level Navigation State
+  const [activeTopTab, setActiveTopTab] = useState('dashboard'); // 'dashboard' | 'hackathon'
+
+  // Global SIH Lock State (Mentor controlled lock)
+  const [isSihLocked, setIsSihLocked] = useState(() => {
+    if (savedDb && savedDb.isSihLocked !== undefined) return Boolean(savedDb.isSihLocked);
+    return false;
+  });
+
+  const toggleSihLock = (status) => {
+    const newStatus = status !== undefined ? Boolean(status) : !isSihLocked;
+    setIsSihLocked(newStatus);
+    saveAndBroadcastState({ isSihLocked: newStatus });
+  };
+
+  // SIH Hackathon Module States & Persistence
+  const [problemStatements, setProblemStatements] = useState(() => {
+    if (savedDb && savedDb.problemStatements) return savedDb.problemStatements;
+    return [
+      {
+        id: 'ps-101',
+        title: 'AI-Powered Smart Traffic Management System for Smart Cities',
+        description: 'Build an edge-deployed real-time computer vision & IoT pipeline to dynamically regulate traffic signals, reduce congestion, and prioritize emergency vehicles.',
+        category: 'Hardware',
+        domain_tags: ['AI', 'Edge AI', 'IoT'],
+        createdBy: 'barathkrishna046@gmail.com',
+        status: 'active',
+        createdAt: '2026-08-08T10:00:00Z'
+      },
+      {
+        id: 'ps-102',
+        title: 'Autonomous Student Career Analytics & Skill Match Engine',
+        description: 'Create a fullstack AI portal that analyzes student repository commits, certifications, and project benchmarks to auto-generate verified career roadmaps and job match scores.',
+        category: 'Software',
+        domain_tags: ['Fullstack', 'AI', 'Analytics'],
+        createdBy: 'barathkrishna046@gmail.com',
+        status: 'active',
+        createdAt: '2026-08-08T11:00:00Z'
+      },
+      {
+        id: 'ps-103',
+        title: 'Decentralized Peer Code Auditing & Verification Protocol',
+        description: 'Design a zero-trust automated peer review system with automated test execution, static code analysis, and anti-plagiarism detection for student coding submissions.',
+        category: 'Software',
+        domain_tags: ['Fullstack', 'Security'],
+        createdBy: 'barathkrishna046@gmail.com',
+        status: 'active',
+        createdAt: '2026-08-08T12:00:00Z'
+      }
+    ];
+  });
+
+  const [hackathonTeams, setHackathonTeams] = useState(() => {
+    if (savedDb && savedDb.hackathonTeams) return savedDb.hackathonTeams;
+    return [];
+  });
+
+  const [teamMembers, setTeamMembers] = useState(() => {
+    if (savedDb && savedDb.teamMembers) return savedDb.teamMembers;
+    return [];
+  });
+
+  const [ideaSubmissions, setIdeaSubmissions] = useState(() => {
+    if (savedDb && savedDb.ideaSubmissions) return savedDb.ideaSubmissions;
+    return [];
+  });
+
+  const resetSihHackathonData = () => {
+    setHackathonTeams([]);
+    setTeamMembers([]);
+    setIdeaSubmissions([]);
+    saveAndBroadcastState({
+      hackathonTeams: [],
+      teamMembers: [],
+      ideaSubmissions: []
+    });
+  };
+
+  // SIH Hackathon Actions
+  const createProblemStatement = (title, description, category, domainTags, bannerUrl = '') => {
+    const newPS = {
+      id: `ps-${Date.now()}`,
+      title,
+      description,
+      category: category || 'Software',
+      domain_tags: Array.isArray(domainTags) ? domainTags : (domainTags ? domainTags.split(',').map(s => s.trim()) : ['Fullstack']),
+      bannerUrl: bannerUrl || '',
+      createdBy: currentUser?.id || 'barathkrishna046@gmail.com',
+      status: 'active',
+      createdAt: new Date().toISOString()
+    };
+
+    setProblemStatements(prev => [newPS, ...prev]);
+    saveAndBroadcastState({ problemStatements: [newPS, ...problemStatements] });
+    return newPS;
+  };
+
+  const updateProblemStatement = (psId, updatedData) => {
+    setProblemStatements(prev => prev.map(p => p.id === psId ? { ...p, ...updatedData } : p));
+    saveAndBroadcastState({ problemStatements: problemStatements.map(p => p.id === psId ? { ...p, ...updatedData } : p) });
+  };
+
+  const deleteProblemStatement = (psId) => {
+    setProblemStatements(prev => {
+      const updated = prev.filter(p => p.id !== psId);
+      saveAndBroadcastState({ problemStatements: updated });
+      return updated;
+    });
+  };
+
+  const createHackathonTeam = (teamName) => {
+    if (!currentUser?.id) return null;
+    const newTeamId = `hteam-${Date.now()}`;
+    const newTeam = {
+      id: newTeamId,
+      teamName,
+      createdBy: currentUser.id,
+      problemStatementId: null,
+      status: 'draft',
+      createdAt: new Date().toISOString()
+    };
+
+    const newMember = {
+      id: `tm-${Date.now()}`,
+      teamId: newTeamId,
+      studentId: currentUser.id,
+      joinedAt: new Date().toISOString()
+    };
+
+    setHackathonTeams(prev => [newTeam, ...prev]);
+    setTeamMembers(prev => [...prev, newMember]);
+    saveAndBroadcastState({ 
+      hackathonTeams: [newTeam, ...hackathonTeams],
+      teamMembers: [...teamMembers, newMember]
+    });
+    return newTeam;
+  };
+
+  const selectProblemStatementForTeam = (teamId, psId) => {
+    setHackathonTeams(prev => prev.map(t => t.id === teamId ? { ...t, problemStatementId: psId } : t));
+    saveAndBroadcastState({ hackathonTeams: hackathonTeams.map(t => t.id === teamId ? { ...t, problemStatementId: psId } : t) });
+  };
+
+  const updateHackathonTeam = (teamId, updatedData) => {
+    setHackathonTeams(prev => prev.map(t => t.id === teamId ? { ...t, ...updatedData } : t));
+    saveAndBroadcastState({ hackathonTeams: hackathonTeams.map(t => t.id === teamId ? { ...t, ...updatedData } : t) });
+  };
+
+  const inviteTeamMember = (teamId, studentId) => {
+    if (!teamMembers.some(m => m.teamId === teamId && m.studentId === studentId)) {
+      const newMember = {
+        id: `tm-${Date.now()}`,
+        teamId,
+        studentId,
+        joinedAt: new Date().toISOString()
+      };
+      setTeamMembers(prev => [...prev, newMember]);
+      saveAndBroadcastState({ teamMembers: [...teamMembers, newMember] });
+    }
+  };
+
+  const removeTeamMember = (teamId, studentId) => {
+    setTeamMembers(prev => prev.filter(m => !(m.teamId === teamId && m.studentId === studentId)));
+    saveAndBroadcastState({ teamMembers: teamMembers.filter(m => !(m.teamId === teamId && m.studentId === studentId)) });
+  };
+
+  const submitIdeaSubmission = (teamId, psId, solutionApproach, techStack, expectedImpact) => {
+    const existingIndex = ideaSubmissions.findIndex(s => s.teamId === teamId);
+    let updatedSubmissions;
+
+    if (existingIndex !== -1) {
+      updatedSubmissions = ideaSubmissions.map((s, idx) => {
+        if (idx === existingIndex) {
+          return {
+            ...s,
+            solutionApproach,
+            techStack,
+            expectedImpact,
+            submittedAt: new Date().toISOString(),
+            reviewStatus: 'pending'
+          };
+        }
+        return s;
+      });
+    } else {
+      const newSub = {
+        id: `sub-${Date.now()}`,
+        teamId,
+        problemStatementId: psId,
+        solutionApproach,
+        techStack,
+        expectedImpact,
+        submittedAt: new Date().toISOString(),
+        reviewStatus: 'pending',
+        reviewedBy: null,
+        reviewedAt: null,
+        mentorFeedback: null
+      };
+      updatedSubmissions = [newSub, ...ideaSubmissions];
+    }
+
+    setIdeaSubmissions(updatedSubmissions);
+    setHackathonTeams(prev => prev.map(t => t.id === teamId ? { ...t, status: 'submitted' } : t));
+
+    saveAndBroadcastState({
+      ideaSubmissions: updatedSubmissions,
+      hackathonTeams: hackathonTeams.map(t => t.id === teamId ? { ...t, status: 'submitted' } : t)
+    });
+  };
+
+  const reviewIdeaSubmission = (submissionId, decision, mentorFeedbackText) => {
+    const targetSub = ideaSubmissions.find(s => s.id === submissionId);
+    if (!targetSub) return;
+
+    const updatedSubmissions = ideaSubmissions.map(s => {
+      if (s.id === submissionId) {
+        return {
+          ...s,
+          reviewStatus: decision,
+          reviewedBy: currentUser?.id || 'barathkrishna046@gmail.com',
+          reviewedAt: new Date().toISOString(),
+          mentorFeedback: mentorFeedbackText || null
+        };
+      }
+      return s;
+    });
+
+    const updatedTeams = hackathonTeams.map(t => {
+      if (t.id === targetSub.teamId) {
+        return { ...t, status: decision };
+      }
+      return t;
+    });
+
+    setIdeaSubmissions(updatedSubmissions);
+    setHackathonTeams(updatedTeams);
+
+    saveAndBroadcastState({
+      ideaSubmissions: updatedSubmissions,
+      hackathonTeams: updatedTeams
+    });
+  };
+
+
+  const [showProfileSetupModal, setShowProfileSetupModal] = useState(false);
+  const [showUserProfileModal, setShowUserProfileModal] = useState(false);
+  const [pendingSetupProfile, setPendingSetupProfile] = useState(null);
+
+  // Supabase Auth State Listener
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('⚡ [Supabase Auth Listener]', event, session?.user?.email);
+
+      if (session?.user) {
+        try {
+          const { profile, isNewUser, setupCompleted } = await fetchOrCreateUserProfile(session.user, users);
+          
+          setUsers(prev => {
+            const idx = prev.findIndex(u => u.id === profile.id || u.email === profile.email);
+            if (idx !== -1) {
+              const updated = [...prev];
+              updated[idx] = { ...updated[idx], ...profile };
+              return updated;
+            }
+            return [profile, ...prev];
+          });
+
+          setCurrentUserId(profile.id);
+          localStorage.setItem('ph_active_user_id', profile.id);
+
+          if (profile.role === 'mentor' || isMentorEmail(profile.email)) {
+            setCurrentRoleView('mentor');
+            setAuthScreen('app');
+            setShowProfileSetupModal(false);
+          } else {
+            setCurrentRoleView('student');
+            if (!setupCompleted) {
+              setPendingSetupProfile(profile);
+              setShowProfileSetupModal(true);
+            } else {
+              setAuthScreen('app');
+              setShowProfileSetupModal(false);
+            }
+          }
+        } catch (err) {
+          console.error('Error in auth session setup:', err);
+        }
+      } else if (event === 'SIGNED_OUT') {
+        setAuthScreen('login');
+        setShowProfileSetupModal(false);
+      }
+    });
+
+    return () => subscription?.unsubscribe();
+  }, []);
+
+  const handleCompleteStudentSetup = (completedProfile) => {
+    const updatedUsers = users.map(u => u.id === completedProfile.id ? completedProfile : u);
+    setUsers(updatedUsers);
+    saveAndBroadcastState({ users: updatedUsers });
+    syncProfileToSupabase(completedProfile);
+
+    setShowProfileSetupModal(false);
+    setPendingSetupProfile(null);
+    setAuthScreen('app');
+  };
+
+  const handleSignOut = async () => {
+    await signOutUser();
+    setAuthScreen('login');
+  };
+
+  const loginWithGoogleUser = async (authUserPayload) => {
+    try {
+      const authUser = {
+        id: authUserPayload.id || `google-user-${Date.now()}`,
+        email: authUserPayload.email,
+        user_metadata: authUserPayload.user_metadata || { full_name: authUserPayload.name }
+      };
+
+      const { profile, isNewUser, setupCompleted } = await fetchOrCreateUserProfile(authUser, users);
+      
+      setUsers(prev => {
+        const idx = prev.findIndex(u => u.id === profile.id || u.email === profile.email);
+        if (idx !== -1) {
+          const updated = [...prev];
+          updated[idx] = { ...updated[idx], ...profile };
+          return updated;
+        }
+        return [profile, ...prev];
+      });
+
+      setCurrentUserId(profile.id);
+      localStorage.setItem('ph_active_user_id', profile.id);
+
+      if (profile.role === 'mentor' || isMentorEmail(profile.email)) {
+        setCurrentRoleView('mentor');
+        setAuthScreen('app');
+        setShowProfileSetupModal(false);
+      } else {
+        setCurrentRoleView('student');
+        if (!setupCompleted) {
+          setPendingSetupProfile(profile);
+          setShowProfileSetupModal(true);
+        } else {
+          setAuthScreen('app');
+          setShowProfileSetupModal(false);
+        }
+      }
+    } catch (err) {
+      console.error('Error logging in Google account:', err);
+    }
+  };
 
   const selectProfile = (userId) => {
     setCurrentUserId(userId);
     localStorage.setItem('ph_active_user_id', userId);
     const user = users.find(u => u.id === userId);
-    if (user && user.roles.length === 1) {
-      setCurrentRoleView(user.roles[0]);
-    } else if (user && user.roles.includes('mentor')) {
+    const isMentor = user?.role === 'mentor' || (user?.roles || []).includes('mentor') || isMentorEmail(user?.email);
+
+    if (isMentor) {
       setCurrentRoleView('mentor');
     } else {
       setCurrentRoleView('student');
     }
-    setAuthScreen('dashboard');
+    setAuthScreen('app');
   };
 
   const toggleRoleView = (view) => {
-    if (currentUser.roles.includes(view)) {
-      setCurrentRoleView(view);
+    const isMentor = currentUser?.role === 'mentor' || (currentUser?.roles || []).includes('mentor') || isMentorEmail(currentUser?.email);
+    if (view === 'mentor' && !isMentor) {
+      alert('⚠️ Access Restricted: Mentor role is required to switch to Mentor View.');
+      return;
     }
+    setCurrentRoleView(view);
   };
 
   // Update Profile Picture for student with field standardization & logging
@@ -504,25 +1294,13 @@ export const AppProvider = ({ children }) => {
 
   const calculateStudentStreak = (studentId) => {
     const { todayStr } = getISTDateDetails();
-    const calendarDays = generateCalendarDays();
-    const pastAndTodayDays = calendarDays.filter(d => d.dateStr <= todayStr).reverse();
-
-    let streak = 0;
-    for (const day of pastAndTodayDays) {
-      const habit = getStudentHabitRecord(studentId, day.dateStr);
-      if (habit.studyDone && habit.submitDone) {
-        streak++;
-      } else {
-        break; // Streak reset on missed or incomplete day
-      }
-    }
-    return streak;
+    return recalculateStudentStreak(studentId, submissions, todayStr);
   };
 
 
 
 
-  const updateGoogleSuiteConfig = ({ topic, timing, meetUrl, driveUrl, classroomUrl }) => {
+  const updateGoogleSuiteConfig = ({ topic, timing, meetUrl, driveUrl, classroomUrl, communityHubUrl }) => {
     if (topic !== undefined || timing !== undefined || meetUrl !== undefined) {
       setGoogleMeetConfig(prev => ({
         topic: topic !== undefined ? topic : prev.topic,
@@ -532,6 +1310,13 @@ export const AppProvider = ({ children }) => {
     }
     if (driveUrl !== undefined) setGoogleDriveUrl(driveUrl);
     if (classroomUrl !== undefined) setGoogleClassroomUrl(classroomUrl);
+    if (communityHubUrl !== undefined) setCommunityHubUrl(communityHubUrl);
+
+    saveAndBroadcastState({
+      googleDriveUrl: driveUrl,
+      googleClassroomUrl: classroomUrl,
+      communityHubUrl
+    });
   };
 
   // Yesterday's Rank Snapshots for Rank Change Indicators (▲, ▼, —)
@@ -548,10 +1333,19 @@ export const AppProvider = ({ children }) => {
     };
   });
 
-  const calculateStudentScore = (studentId, timeRange = 'ALL') => {
-    const studentSubs = submissions.filter(s => s.studentId === studentId);
-    const studentTeams = teams.filter(t => t.memberIds && t.memberIds.includes(studentId));
-    const leadTeams = teams.filter(t => t.leadStudentId === studentId);
+  const calculateStudentScore = (studentId, timeRange = 'all_time') => {
+    // Filter student submissions: If score reset occurred, only count submissions submitted AFTER scoreResetTimestamp
+    const validStudentSubs = submissions.filter(s => {
+      if (s.deleted_at) return false;
+      if (s.studentId !== studentId && s.student_id !== studentId) return false;
+      if (scoreResetTimestamp && s.submittedAt && s.submittedAt < scoreResetTimestamp) {
+        return false; // Exclude submissions prior to score reset!
+      }
+      return true;
+    });
+
+    const studentTeams = teams.filter(t => !t.deleted_at && t.memberIds && t.memberIds.includes(studentId));
+    const leadTeams = teams.filter(t => !t.deleted_at && t.leadStudentId === studentId);
     const streak = calculateStudentStreak ? calculateStudentStreak(studentId) : 0;
 
     let baseSubmissionPts = 0;
@@ -565,9 +1359,9 @@ export const AppProvider = ({ children }) => {
     const pointsLedger = [];
 
     let onTimeCount = 0;
-    let totalSubmissionsCount = studentSubs.length;
+    let totalSubmissionsCount = validStudentSubs.length;
 
-    studentSubs.forEach((sub, idx) => {
+    validStudentSubs.forEach((sub, idx) => {
       if (sub.status === 'approved' || sub.status === 'pending') {
         baseSubmissionPts += 10;
         pointsLedger.push({
@@ -619,51 +1413,62 @@ export const AppProvider = ({ children }) => {
       }
     });
 
-    // Streak Bonus Points
+    const hasPostResetActivity = validStudentSubs.length > 0;
+
     let streakBonusPts = 0;
-    if (streak >= 7) {
-      streakBonusPts = 10;
+    if (hasPostResetActivity || !scoreResetTimestamp) {
+      if (streak >= 7) {
+        streakBonusPts = 10;
+        pointsLedger.push({
+          id: `leg-streak-${studentId}`,
+          date: getISTDateDetails().todayStr,
+          reason: `7-Day Active Streak Bonus (${streak} Days)`,
+          amount: '+10 pts',
+          type: 'earn'
+        });
+      } else if (streak >= 3) {
+        streakBonusPts = 5;
+        pointsLedger.push({
+          id: `leg-streak-${studentId}`,
+          date: getISTDateDetails().todayStr,
+          reason: `3-Day Active Streak Bonus (${streak} Days)`,
+          amount: '+5 pts',
+          type: 'earn'
+        });
+      }
+    }
+
+    const completedPeerReviews = peerReviews.filter(r => r.reviewer_id === studentId && (!scoreResetTimestamp || r.created_at >= scoreResetTimestamp));
+    const peerReviewBonusPts = completedPeerReviews.length * 2;
+    if (peerReviewBonusPts > 0) {
       pointsLedger.push({
-        id: `leg-streak-${studentId}`,
+        id: `leg-peer-${studentId}`,
         date: getISTDateDetails().todayStr,
-        reason: `7-Day Active Streak Bonus (${streak} Days)`,
-        amount: '+10 pts',
-        type: 'earn'
-      });
-    } else if (streak >= 3) {
-      streakBonusPts = 5;
-      pointsLedger.push({
-        id: `leg-streak-${studentId}`,
-        date: getISTDateDetails().todayStr,
-        reason: `3-Day Active Streak Bonus (${streak} Days)`,
-        amount: '+5 pts',
+        reason: `Peer Code Review Bonus (${completedPeerReviews.length} Reviews Completed)`,
+        amount: `+${peerReviewBonusPts} pts`,
         type: 'earn'
       });
     }
 
-    // Check missed days deductions (-2 pts per recorded missed day)
-    Object.keys(dailyHabitStates).forEach(key => {
-      if (key.startsWith(`${studentId}_`)) {
-        const dateStr = key.replace(`${studentId}_`, '');
-        const habit = dailyHabitStates[key];
-        if (habit && !habit.submitDone && dateStr < getISTDateDetails().todayStr) {
-          missedDeductionsPts += 2;
-          pointsLedger.push({
-            id: `leg-missed-${dateStr}`,
-            date: dateStr,
-            reason: `Deduction: Missed Submission (${dateStr})`,
-            amount: '-2 pts',
-            type: 'deduct'
-          });
-        }
-      }
-    });
+    const teamPts = (hasPostResetActivity || !scoreResetTimestamp) ? studentTeams.length * 5 : 0;
+    const leadershipPts = (hasPostResetActivity || !scoreResetTimestamp) ? leadTeams.length * 15 : 0;
 
+    const automatedScore = Math.max(0, (baseSubmissionPts + onTimeBonusPts + earlyBonusPts + streakBonusPts + peerReviewBonusPts + teamPts + leadershipPts + projectPts + firstSubmitterPts) - (penaltyPts + missedDeductionsPts));
 
-    const teamPts = studentTeams.length * 5;
-    const leadershipPts = leadTeams.length * 15;
+    const isManualSet = manualMentorMarks[studentId] !== undefined && manualMentorMarks[studentId] !== null;
+    const manualMarkVal = isManualSet ? Number(manualMentorMarks[studentId]) : null;
 
-    const totalScore = Math.max(0, (baseSubmissionPts + onTimeBonusPts + earlyBonusPts + streakBonusPts + teamPts + leadershipPts + projectPts + firstSubmitterPts) - (penaltyPts + missedDeductionsPts));
+    if (isManualSet) {
+      pointsLedger.push({
+        id: `leg-manual-${studentId}`,
+        date: getISTDateDetails().todayStr,
+        reason: '⭐ Direct Mentor Evaluation Marks (Assigned by Mentor)',
+        amount: `${manualMarkVal} pts`,
+        type: 'earn'
+      });
+    }
+
+    const totalScore = isManualSet ? manualMarkVal : automatedScore;
 
     const onTimePercentage = totalSubmissionsCount > 0 ? Math.round((onTimeCount / totalSubmissionsCount) * 100) : 0;
     const onTimeFraction = `${onTimeCount}/${totalSubmissionsCount} On-Time (${onTimePercentage}%)`;
@@ -679,13 +1484,16 @@ export const AppProvider = ({ children }) => {
       firstSubmitterPts,
       penaltyPts,
       missedDeductionsPts,
+      automatedScore,
+      isManualSet,
+      manualMarkVal,
       totalScore,
       onTimeCount,
       totalSubmissionsCount,
       onTimeFraction,
       onTimePercentage,
       pointsLedger,
-      submissionCount: studentSubs.length,
+      submissionCount: validStudentSubs.length,
       teamCount: studentTeams.length,
       leadCount: leadTeams.length,
       streak
@@ -694,43 +1502,140 @@ export const AppProvider = ({ children }) => {
 
 
   const submitWork = ({ githubUrl, imageAttachment, videoAttachmentName, roundName, isProject }) => {
-    const githubRegex = /^https:\/\/(www\.)?github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/?$/;
-    if (!githubUrl || !githubRegex.test(githubUrl.trim())) {
-      throw new Error("A valid GitHub link is required — other domain links aren't accepted. (e.g. https://github.com/username/repository)");
+    // D3: GitHub URL Validation & Duplicate Flagging across students
+    const dupCheck = validateAndFlagDuplicateGithub(githubUrl, currentUser.id, getISTDateDetails().todayStr, submissions);
+    if (!dupCheck.isValid) {
+      throw new Error(dupCheck.error);
     }
 
-    const existingInRound = submissions.filter(s => s.roundName === roundName);
-    const isFirstSubmitter = existingInRound.length === 0;
+    const existingIndex = submissions.findIndex(s => 
+      (s.studentId === currentUser.id || s.student_id === currentUser.id) && 
+      (s.roundName === roundName || s.round_name === roundName || s.date === getISTDateDetails().todayStr)
+    );
 
-    const newSub = {
-      id: `sub-${Date.now()}`,
+    let updatedSubmissions;
+    let newSub;
+
+    if (existingIndex !== -1) {
+      const existing = submissions[existingIndex];
+      newSub = {
+        ...existing,
+        githubUrl: githubUrl.trim(),
+        github_url: githubUrl.trim(),
+        imageAttachment: imageAttachment || existing.imageAttachment || null,
+        mediaUrl: imageAttachment || existing.mediaUrl || null,
+        media_url: imageAttachment || existing.media_url || null,
+        videoAttachmentName: videoAttachmentName || existing.videoAttachmentName || null,
+        submittedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        isUpdated: true,
+        status: 'pending', // Reset status to pending so mentor reviews the update!
+        isDuplicateFlagged: dupCheck.isDuplicate,
+        duplicateInfo: dupCheck.isDuplicate ? `Duplicate GitHub URL match with student '${dupCheck.duplicateStudentName}'` : null,
+      };
+      updatedSubmissions = [...submissions];
+      updatedSubmissions[existingIndex] = newSub;
+    } else {
+      const existingInRound = submissions.filter(s => s.roundName === roundName || s.round_name === roundName);
+      const isFirstSubmitter = existingInRound.length === 0;
+
+      newSub = {
+        id: `sub-${Date.now()}`,
+        studentId: currentUser.id,
+        student_id: currentUser.id,
+        studentName: currentUser.name,
+        student_name: currentUser.name,
+        date: getISTDateDetails().todayStr,
+        bootcampId: currentUser.bootcampId || 'bootcamp-1',
+        roundName: roundName || 'Month 1 Sprint Submission',
+        round_name: roundName || 'Month 1 Sprint Submission',
+        githubUrl: githubUrl.trim(),
+        github_url: githubUrl.trim(),
+        imageAttachment: imageAttachment || null,
+        mediaUrl: imageAttachment || null,
+        media_url: imageAttachment || null,
+        videoAttachmentName: videoAttachmentName || null,
+        submittedAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        isProject: Boolean(isProject),
+        isFirstSubmitter,
+        isDuplicateFlagged: dupCheck.isDuplicate,
+        duplicateInfo: dupCheck.isDuplicate ? `Duplicate GitHub URL match with student '${dupCheck.duplicateStudentName}'` : null,
+        status: 'pending',
+        isOnTime: true,
+        reviewNotes: null
+      };
+      updatedSubmissions = [newSub, ...submissions];
+    }
+    setSubmissions(updatedSubmissions);
+
+    // B1: Auto-Tick Submission Calendar
+    const updatedHabits = autoTickSubmissionCalendar(currentUser.id, getISTDateDetails().todayStr, dailyHabitStates);
+    setDailyHabitStates(updatedHabits);
+
+    // B3: Points Ledger - Base points (+5) & Early Submission Bonus (+1 if >1hr before 11 PM cutoff)
+    const ist = getISTDateDetails();
+    let pts = 5;
+    let reason = 'Submission Completed (+5)';
+    if (ist.secondsTo11PM > 3600) {
+      pts += 1;
+      reason = 'Early Submission Bonus (+6)';
+    }
+
+    const { ledger: newLedger } = recordPointsLedgerEntry(pointsLedger, {
       studentId: currentUser.id,
-      date: getISTDateDetails().todayStr,
-      bootcampId: currentUser.bootcampId || 'bootcamp-1',
-      roundName: roundName || 'Month 1 Sprint Submission',
-      githubUrl: githubUrl.trim(),
-      imageAttachment: imageAttachment || null,
-      mediaUrl: imageAttachment || null,
-      videoAttachmentName: videoAttachmentName || null,
-      submittedAt: new Date().toISOString(),
-      isProject: Boolean(isProject),
-      isFirstSubmitter,
-      status: 'submitted',
-      isOnTime: true,
-      reviewNotes: null
-    };
+      dateStr: ist.todayStr,
+      amount: pts,
+      reason
+    });
+    setPointsLedger(newLedger);
 
-    setSubmissions(prev => [newSub, ...prev]);
+    // B2 & B4: Streak Calculation & Milestone Badges (strict submissions check)
+    const newStreak = recalculateStudentStreak(currentUser.id, updatedSubmissions, ist.todayStr);
+    const { updatedBadges } = checkAndAwardMilestoneBadges(currentUser.id, newStreak, currentUser.badges || []);
+
+    const updatedUsers = users.map(u => {
+      if (u.id === currentUser.id) {
+        return {
+          ...u,
+          myStreak: newStreak,
+          badges: updatedBadges
+        };
+      }
+      return u;
+    });
+    setUsers(updatedUsers);
+
+    // Auditing: System Automation Log
+    const newLogs = logAutomationAction(automationLogs, {
+      actionType: 'B1_B3_AUTO_SUBMIT',
+      affectedStudentId: currentUser.id,
+      details: `Auto-ticked calendar, logged ${pts} points in points_ledger, updated streak (${newStreak} days).`
+    });
+    setAutomationLogs(newLogs);
+
+    saveAndBroadcastState({
+      submissions: updatedSubmissions,
+      dailyHabitStates: updatedHabits,
+      pointsLedger: newLedger,
+      automationLogs: newLogs,
+      users: updatedUsers
+    });
+
     syncSubmissionToSupabase(newSub);
-    toggleDailyHabit(currentUser.id, getISTDateDetails().todayStr, 'submitDone');
+    exportSubmissionToGoogleSheets(newSub);
     return newSub;
   };
 
-
-
   const reviewSubmission = (submissionId, { status, skillRatingsObj, reviewNotes, isProject, isFirstSubmitter }) => {
-    setSubmissions(prev => prev.map(s => {
+    let targetStudentId = null;
+    let targetRoundName = '';
+
+    const updatedSubmissions = submissions.map(s => {
       if (s.id === submissionId) {
+        targetStudentId = s.studentId;
+        targetRoundName = s.roundName;
         return {
           ...s,
           status,
@@ -740,7 +1645,48 @@ export const AppProvider = ({ children }) => {
         };
       }
       return s;
-    }));
+    });
+    setSubmissions(updatedSubmissions);
+
+    // C2: Auto-send Notification to Student on Mentor Feedback
+    let updatedNotifs = notifications;
+    if (targetStudentId && reviewNotes) {
+      const fbNotif = createMentorFeedbackNotification(targetStudentId, targetRoundName, reviewNotes);
+      updatedNotifs = [fbNotif, ...notifications];
+      setNotifications(updatedNotifs);
+    }
+
+    const newLogs = logAutomationAction(automationLogs, {
+      actionType: 'C2_MENTOR_FEEDBACK_NOTIF',
+      affectedStudentId: targetStudentId,
+      details: `In-app notification sent to student for feedback on ${targetRoundName}`
+    });
+    setAutomationLogs(newLogs);
+
+    saveAndBroadcastState({
+      submissions: updatedSubmissions,
+      notifications: updatedNotifs,
+      automationLogs: newLogs
+    });
+  };
+
+  const updateSubmissionDetails = (subId, { projectTitle, projectDescription, demoLink }) => {
+    setSubmissions(prev => {
+      const updated = prev.map(s => {
+        if (s.id === subId) {
+          return {
+            ...s,
+            projectTitle: projectTitle !== undefined ? projectTitle : s.projectTitle,
+            projectDescription: projectDescription !== undefined ? projectDescription : s.projectDescription,
+            demoLink: demoLink !== undefined ? demoLink : s.demoLink,
+            demoUrl: demoLink !== undefined ? demoLink : s.demoUrl
+          };
+        }
+        return s;
+      });
+      saveAndBroadcastState({ submissions: updated });
+      return updated;
+    });
   };
 
   const createTeam = ({ name, teamAvatarUrl, leadStudentId, memberIds }) => {
@@ -756,35 +1702,362 @@ export const AppProvider = ({ children }) => {
       githubUrl: 'https://github.com/team-repo',
       createdAt: new Date().toISOString()
     };
-    setTeams(prev => [...prev, newTeam]);
+    setTeams(prev => {
+      const updated = [...prev, newTeam];
+      saveAndBroadcastState({ teams: updated });
+      return updated;
+    });
     syncTeamToSupabase(newTeam);
   };
-
-  const deleteTeam = (teamId) => {
-    setTeams(prev => prev.filter(t => t.id !== teamId));
-    deleteTeamFromSupabase(teamId);
-  };
-
 
   const postAnnouncement = ({ title, message, bootcampId }) => {
     const newAnn = {
       id: `ann-${Date.now()}`,
-      authorId: currentUser.id,
-      authorName: `${currentUser.name} (Mentor)`,
+      authorId: currentUser?.id || 'barath-mentor',
+      authorName: `${currentUser?.name || 'Mentor'} (Mentor)`,
       bootcampId: bootcampId || 'all',
       title,
       message,
       createdAt: new Date().toISOString(),
       isPinned: true
     };
-    setAnnouncements(prev => [newAnn, ...prev]);
+    setAnnouncements(prev => {
+      const updated = [newAnn, ...prev.filter(a => a.id !== newAnn.id)];
+      saveAndBroadcastState({ announcements: updated });
+      return updated;
+    });
     syncAnnouncementToSupabase(newAnn);
   };
 
+  // Data Durability & Auto-Export States
+  const [deletionLog, setDeletionLog] = useState(() => {
+    if (savedDb && savedDb.deletionLog) return savedDb.deletionLog;
+    return [];
+  });
 
-  const deleteAnnouncement = (annId) => {
-    setAnnouncements(prev => prev.filter(a => a.id !== annId));
-    deleteAnnouncementFromSupabase(annId);
+  const DEFAULT_SHEETS_WEBHOOK = 'https://script.google.com/macros/s/AKfycbz_powerhub_sheets_api_barathkrishnah/exec';
+
+  const [googleSheetsWebhookUrl, setGoogleSheetsWebhookUrlState] = useState(() => {
+    return localStorage.getItem('ph_google_sheets_webhook_url') || (savedDb?.googleSheetsWebhookUrl || DEFAULT_SHEETS_WEBHOOK);
+  });
+
+  const setGoogleSheetsWebhookUrl = (urlStr) => {
+    const val = urlStr || DEFAULT_SHEETS_WEBHOOK;
+    setGoogleSheetsWebhookUrlState(val);
+    localStorage.setItem('ph_google_sheets_webhook_url', val);
+    saveAndBroadcastState({ googleSheetsWebhookUrl: val });
+  };
+
+  const [submissionExportLogs, setSubmissionExportLogs] = useState(() => {
+    if (savedDb && savedDb.submissionExportLogs) return savedDb.submissionExportLogs;
+    return [];
+  });
+
+  const [databaseBackups, setDatabaseBackups] = useState(() => {
+    if (savedDb && savedDb.databaseBackups) return savedDb.databaseBackups;
+    return [];
+  });
+
+  const [scoreResetTimestamp, setScoreResetTimestamp] = useState(() => {
+    if (savedDb && savedDb.scoreResetTimestamp) return savedDb.scoreResetTimestamp;
+    return null;
+  });
+
+  // Google Sheets Submission Auto-Export Method
+  const exportSubmissionToGoogleSheets = async (subObj) => {
+    const studentUser = users.find(u => u.id === subObj.studentId || u.id === subObj.student_id) || { name: 'Student', domain: 'Engineering' };
+    const exportRow = {
+      studentName: studentUser.name,
+      domain: studentUser.domain || 'FULLSTACK',
+      submittedAt: subObj.submittedAt || new Date().toISOString(),
+      githubUrl: subObj.githubUrl || subObj.github_url || '',
+      status: subObj.isOnTime !== false ? 'On-Time' : 'Late',
+      roundName: subObj.roundName || 'Daily Deliverable'
+    };
+
+    setSubmissionExportLogs(prev => [exportRow, ...prev]);
+    saveAndBroadcastState({ submissionExportLogs: [exportRow, ...submissionExportLogs] });
+
+    if (googleSheetsWebhookUrl) {
+      try {
+        await fetch(googleSheetsWebhookUrl, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(exportRow)
+        });
+        console.log('⚡ [Google Sheets API Auto-Export] Logged submission row:', exportRow);
+      } catch (err) {
+        console.warn('⚡ [Google Sheets API Auto-Export Error]:', err);
+      }
+    }
+  };
+
+  // Section 1: Reset All Student Scores to Zero & Clear Ledger
+  const resetAllStudentScoresToZero = () => {
+    const resetTime = new Date().toISOString();
+    setManualMentorMarks({});
+    setPointsLedger([]);
+    setScoreResetTimestamp(resetTime);
+
+    const resetUsers = users.map(u => ({
+      ...u,
+      totalScore: 0,
+      myStreak: 0
+    }));
+    setUsers(resetUsers);
+
+    saveAndBroadcastState({
+      manualMentorMarks: {},
+      pointsLedger: [],
+      scoreResetTimestamp: resetTime,
+      users: resetUsers
+    });
+
+    logAutomationAction('🧹 Reset All Student Scores to Zero & Cleared Points Ledger', currentUser?.id, currentUser?.name);
+    alert('✅ All student scores have been reset to 0, and points_ledger audit history has been cleared!');
+  };
+
+  // Section 6: Soft Delete Action (Mentor-Only with mandatory reason and deletion audit log)
+  const softDeleteRecord = (recordType, recordId, recordTitle, reason) => {
+    const isMentorRole = currentUser?.role === 'mentor' || currentUser?.email === 'barathkrishnah@gmail.com' || currentUser?.email === 'barathkrishna046@gmail.com';
+    if (!currentUser || !isMentorRole) {
+      alert('⚠️ Only mentor roles can perform soft delete actions.');
+      return false;
+    }
+
+    if (!reason || !reason.trim()) {
+      alert('⚠️ A valid reason is required to confirm soft deletion for audit logging.');
+      return false;
+    }
+
+    const deletionAuditEntry = {
+      id: `del-${Date.now()}`,
+      record_type: recordType,
+      record_id: recordId,
+      record_title: recordTitle || recordId,
+      deleted_by_id: currentUser.id,
+      deleted_by_name: currentUser.name || 'Mentor',
+      deleted_at: new Date().toISOString(),
+      reason: reason.trim()
+    };
+
+    const newLog = [deletionAuditEntry, ...deletionLog];
+    setDeletionLog(newLog);
+
+    // Apply soft-delete timestamp (deleted_at) to target record type WITHOUT cascading auto-deletes
+    let updatedUsers = users;
+    let updatedTeams = teams;
+    let updatedAnnouncements = announcements;
+    let updatedSubmissions = submissions;
+    let updatedProblemStatements = problemStatements;
+
+    if (recordType === 'team') {
+      updatedTeams = teams.map(t => t.id === recordId ? { ...t, deleted_at: new Date().toISOString() } : t);
+      setTeams(updatedTeams);
+    } else if (recordType === 'announcement') {
+      updatedAnnouncements = announcements.map(a => a.id === recordId ? { ...a, deleted_at: new Date().toISOString() } : a);
+      setAnnouncements(updatedAnnouncements);
+    } else if (recordType === 'student_profile') {
+      updatedUsers = users.map(u => u.id === recordId ? { ...u, deleted_at: new Date().toISOString() } : u);
+      setUsers(updatedUsers);
+    } else if (recordType === 'submission') {
+      updatedSubmissions = submissions.map(s => s.id === recordId ? { ...s, deleted_at: new Date().toISOString() } : s);
+      setSubmissions(updatedSubmissions);
+    } else if (recordType === 'problem_statement') {
+      updatedProblemStatements = problemStatements.map(p => p.id === recordId ? { ...p, deleted_at: new Date().toISOString() } : p);
+      setProblemStatements(updatedProblemStatements);
+    }
+
+    saveAndBroadcastState({
+      deletionLog: newLog,
+      teams: updatedTeams,
+      announcements: updatedAnnouncements,
+      users: updatedUsers,
+      submissions: updatedSubmissions,
+      problemStatements: updatedProblemStatements
+    });
+
+    logAutomationAction(
+      `🔒 Soft-Deleted ${recordType}: "${recordTitle}" by ${currentUser.name} (Reason: ${reason})`,
+      currentUser.id,
+      currentUser.name
+    );
+
+    return true;
+  };
+
+  const restoreSoftDeletedRecord = (recordType, recordId) => {
+    let updatedUsers = users;
+    let updatedTeams = teams;
+    let updatedAnnouncements = announcements;
+    let updatedSubmissions = submissions;
+    let updatedProblemStatements = problemStatements;
+
+    if (recordType === 'team') {
+      updatedTeams = teams.map(t => t.id === recordId ? { ...t, deleted_at: null } : t);
+      setTeams(updatedTeams);
+    } else if (recordType === 'announcement') {
+      updatedAnnouncements = announcements.map(a => a.id === recordId ? { ...a, deleted_at: null } : a);
+      setAnnouncements(updatedAnnouncements);
+    } else if (recordType === 'student_profile') {
+      updatedUsers = users.map(u => u.id === recordId ? { ...u, deleted_at: null } : u);
+      setUsers(updatedUsers);
+    } else if (recordType === 'submission') {
+      updatedSubmissions = submissions.map(s => s.id === recordId ? { ...s, deleted_at: null } : s);
+      setSubmissions(updatedSubmissions);
+    } else if (recordType === 'problem_statement') {
+      updatedProblemStatements = problemStatements.map(p => p.id === recordId ? { ...p, deleted_at: null } : p);
+      setProblemStatements(updatedProblemStatements);
+    }
+
+    saveAndBroadcastState({
+      teams: updatedTeams,
+      announcements: updatedAnnouncements,
+      users: updatedUsers,
+      submissions: updatedSubmissions,
+      problemStatements: updatedProblemStatements
+    });
+
+    alert('✅ Record restored successfully from soft-deleted archives!');
+  };
+
+  // Section 6: Automated Daily Backup System
+  const createAutomatedDailyBackup = () => {
+    const backupSnapshot = {
+      id: `backup-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      created_by: currentUser?.name || 'automated_system',
+      record_counts: {
+        users: users.filter(u => !u.deleted_at).length,
+        submissions: submissions.filter(s => !s.deleted_at).length,
+        teams: teams.filter(t => !t.deleted_at).length,
+        certificates: certificates.length,
+        peerReviews: peerReviews.length
+      },
+      data: {
+        users,
+        teams,
+        submissions,
+        announcements,
+        certificates,
+        interviewQuestions,
+        peerReviews,
+        problemStatements,
+        hackathonTeams,
+        ideaSubmissions,
+        deletionLog
+      }
+    };
+
+    const newBackups = [backupSnapshot, ...databaseBackups].slice(0, 14);
+    setDatabaseBackups(newBackups);
+    saveAndBroadcastState({ databaseBackups: newBackups });
+    return backupSnapshot;
+  };
+
+  // Legacy Soft-Delete Compatibility Wrappers
+  const deleteTeam = (teamId, reason = 'Mentor action') => {
+    setTeams(prev => {
+      const updated = prev.filter(t => t.id !== teamId);
+      saveAndBroadcastState({ teams: updated });
+      return updated;
+    });
+    logAutomationAction(`Deleted team allocation ${teamId} (Reason: ${reason})`, currentUser?.id, currentUser?.name);
+  };
+
+  const removeStudentFromTeam = (teamId, studentId) => {
+    setTeams(prev => {
+      const updated = prev.map(t => {
+        if (t.id === teamId) {
+          const newMembers = (t.memberIds || []).filter(mId => mId !== studentId);
+          const newLead = t.leadStudentId === studentId ? (newMembers[0] || null) : t.leadStudentId;
+          return {
+            ...t,
+            memberIds: newMembers,
+            leadStudentId: newLead
+          };
+        }
+        return t;
+      });
+      saveAndBroadcastState({ teams: updated });
+      return updated;
+    });
+    logAutomationAction(`Removed student ${studentId} from team ${teamId}`, currentUser?.id, currentUser?.name);
+  };
+
+  const deleteAnnouncement = (annId, reason = 'Mentor action') => {
+    const ann = announcements.find(a => a.id === annId);
+    softDeleteRecord('announcement', annId, ann?.title || annId, reason);
+  };
+
+  const deleteStudentProfile = (studentId, reason = 'Mentor action') => {
+    const student = users.find(u => u.id === studentId);
+    softDeleteRecord('student_profile', studentId, student?.name || studentId, reason);
+  };
+
+  const createStudentProfile = ({ name, email, domain, batch }) => {
+    if (!name.trim()) {
+      alert('Please enter a student name.');
+      return null;
+    }
+
+    const newId = `user-student-${Date.now()}`;
+    const newStudent = {
+      id: newId,
+      name: name.trim(),
+      email: email?.trim() || `${name.toLowerCase().replace(/\s+/g, '')}@student.powerhub.dev`,
+      roles: ['student'],
+      role: 'student',
+      domain: domain || 'FULLSTACK',
+      batch: batch || `${domain || 'FULLSTACK'} Cohort 2026`,
+      myStreak: 0,
+      totalScore: 0,
+      created_at: new Date().toISOString(),
+      setupCompleted: true
+    };
+
+    const updatedUsers = [newStudent, ...users];
+    setUsers(updatedUsers);
+    saveAndBroadcastState({ users: updatedUsers });
+    syncProfileToSupabase(newStudent);
+
+    console.log(`[Create Student Profile] Created student ${newStudent.name} (${newStudent.id})`);
+    alert(`✅ New student profile for "${newStudent.name}" created successfully.`);
+    return newStudent;
+  };
+
+  // Mentor Direct Student Mark Assignment (Non-Automated Direct Marks)
+  const setStudentManualMarks = (studentId, marks, reason = 'Mentor Assessment Marks') => {
+    const numericMarks = Math.max(0, parseInt(marks, 10) || 0);
+    const targetStudent = users.find(u => u.id === studentId);
+    const studentName = targetStudent ? targetStudent.name : studentId;
+
+    setManualMentorMarks(prev => {
+      const updated = {
+        ...prev,
+        [studentId]: numericMarks
+      };
+      saveAndBroadcastState({ manualMentorMarks: updated });
+      return updated;
+    });
+
+    // Create Audit Log record
+    const auditRecord = {
+      id: `audit-${Date.now()}`,
+      studentId,
+      studentName,
+      fieldChanged: 'Direct Mentor Marks Set',
+      oldValue: `${manualMentorMarks[studentId] ?? 'Automated'} pts`,
+      newValue: `${numericMarks} pts`,
+      reason: reason || 'Direct Mentor Evaluation Marks',
+      timestamp: new Date().toISOString()
+    };
+
+    setAuditLogs(prev => [auditRecord, ...prev]);
+
+    console.log(`[Mentor Marks Assigned] Set ${numericMarks} marks for ${studentName} (${studentId})`);
+    alert(`⭐ Successfully assigned ${numericMarks} marks to student "${studentName}".`);
   };
 
 
@@ -834,6 +2107,22 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  const registerPushSubscription = async (studentId) => {
+    try {
+      const { subscribeStudentToPush } = await import('../lib/pushNotifications');
+      const res = await subscribeStudentToPush(studentId);
+      if (res.success && res.subscription) {
+        const updatedSubs = [res.subscription, ...pushSubscriptions.filter(s => s.endpoint !== res.subscription.endpoint)];
+        setPushSubscriptions(updatedSubs);
+        saveAndBroadcastState({ pushSubscriptions: updatedSubs });
+      }
+      return res;
+    } catch (e) {
+      console.error('Failed to register push subscription:', e);
+      return { success: false, error: e.message };
+    }
+  };
+
   return (
     <AppContext.Provider value={{
       users,
@@ -854,6 +2143,7 @@ export const AppProvider = ({ children }) => {
       googleMeetConfig,
       googleDriveUrl,
       googleClassroomUrl,
+      communityHubUrl,
       resumeProfiles,
       updateResumeProfile,
       updateUserProfilePic,
@@ -866,9 +2156,6 @@ export const AppProvider = ({ children }) => {
       milestoneBadges: MILESTONE_BADGES,
       leaderboardHistory,
 
-
-
-
       updateGoogleSuiteConfig,
       currentUser,
       authScreen,
@@ -879,14 +2166,76 @@ export const AppProvider = ({ children }) => {
       calculateStudentScore,
       submitWork,
       reviewSubmission,
+      updateSubmissionDetails,
       createTeam,
       deleteTeam,
+      removeStudentFromTeam,
       postAnnouncement,
       deleteAnnouncement,
       exportDatabase,
       importDatabase,
       syncCloudDatabase,
-      notifications
+      notifications,
+      userQuickLinks,
+      trackQuickLinkClick,
+      techNews,
+      refreshTechNews,
+      certificates,
+      issueCertificate,
+      pointsLedger,
+      automationLogs,
+      pushSubscriptions,
+      notificationLogs,
+      registerPushSubscription,
+      showProfileSetupModal,
+      setShowProfileSetupModal,
+      showUserProfileModal,
+      setShowUserProfileModal,
+      pendingSetupProfile,
+      handleCompleteStudentSetup,
+      handleSignOut,
+      loginWithGoogleUser,
+      deleteStudentProfile,
+      createStudentProfile,
+      manualMentorMarks,
+      setStudentManualMarks,
+      interviewQuestions,
+      mockInterviews,
+      bookMockInterview,
+      updateMockInterviewStatus,
+      peerReviews,
+      submitPeerReview,
+      hackathons,
+      createHackathon,
+      joinHackathon,
+      activeTopTab,
+      setActiveTopTab,
+      problemStatements,
+      hackathonTeams,
+      teamMembers,
+      ideaSubmissions,
+      createProblemStatement,
+      updateProblemStatement,
+      deleteProblemStatement,
+      createHackathonTeam,
+      updateHackathonTeam,
+      selectProblemStatementForTeam,
+      inviteTeamMember,
+      removeTeamMember,
+      submitIdeaSubmission,
+      reviewIdeaSubmission,
+      isSihLocked,
+      toggleSihLock,
+      resetSihHackathonData,
+      deletionLog,
+      softDeleteRecord,
+      restoreSoftDeletedRecord,
+      googleSheetsWebhookUrl,
+      setGoogleSheetsWebhookUrl,
+      submissionExportLogs,
+      databaseBackups,
+      createAutomatedDailyBackup,
+      resetAllStudentScoresToZero
 
     }}>
       {children}
@@ -894,4 +2243,4 @@ export const AppProvider = ({ children }) => {
   );
 };
 
-export const useApp = () => useContext(AppContext);
+export const useApp = () => useContext(AppContext) || {};

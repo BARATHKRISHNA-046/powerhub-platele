@@ -6,6 +6,8 @@ dist-ssr
 *.log
 powerhub_project_full_source.zip
 .vercel
+server_db_store.json
 
 /src/generated/prisma
 .env*
+

@@ -209,8 +209,9 @@ export const INITIAL_GOOGLE_MEET_CONFIG = {
   meetUrl: 'https://meet.google.com/powerhub-cohort-daily'
 };
 
-export const INITIAL_GOOGLE_DRIVE_URL = 'https://drive.google.com/drive/folders/powerhub-cohort-slides';
+export const INITIAL_GOOGLE_DRIVE_URL = 'https://drive.google.com/drive/folders/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms';
 export const INITIAL_GOOGLE_CLASSROOM_URL = 'https://classroom.google.com/c/powerhub-assignments-2026';
+export const INITIAL_COMMUNITY_HUB_URL = 'https://chat.whatsapp.com/PowerhubCommunity2026';
 
 export const SCHEDULE_MONTHS = [
   'August 2026',

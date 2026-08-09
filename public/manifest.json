@@ -1,0 +1,24 @@
+{
+  "name": "PowerHub — Student & Mentor Platform",
+  "short_name": "PowerHub",
+  "description": "PowerHub student cohort leaderboard, daily habit tracking, project submission, and verified resume platform",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#2752dd",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "https://api.dicebear.com/7.x/identicon/svg?seed=PowerHub",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://api.dicebear.com/7.x/identicon/svg?seed=PowerHubLogo",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
