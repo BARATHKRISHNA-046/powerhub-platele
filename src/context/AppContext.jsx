@@ -261,6 +261,12 @@ export const AppProvider = ({ children }) => {
           if (p.users) setUsers(p.users);
           if (p.dailyHabitStates) setDailyHabitStates(p.dailyHabitStates);
           if (p.mentorFeedbacks) setMentorFeedbacks(p.mentorFeedbacks);
+          if (p.manualMentorMarks) setManualMentorMarks(p.manualMentorMarks);
+          if (p.certificates && Array.isArray(p.certificates)) setCertificates(p.certificates);
+          if (p.mockInterviews && Array.isArray(p.mockInterviews)) setMockInterviews(p.mockInterviews);
+          if (p.peerReviews && Array.isArray(p.peerReviews)) setPeerReviews(p.peerReviews);
+          if (p.resumeProfiles) setResumeProfiles(p.resumeProfiles);
+          if (p.userQuickLinks) setUserQuickLinks(p.userQuickLinks);
           if (p.pointsLedger) setPointsLedger(p.pointsLedger);
           if (p.automationLogs) setAutomationLogs(p.automationLogs);
           if (p.deletedAnnIds) setDeletedAnnIds(new Set(p.deletedAnnIds));
@@ -283,6 +289,12 @@ export const AppProvider = ({ children }) => {
           if (p.users) setUsers(p.users);
           if (p.dailyHabitStates) setDailyHabitStates(p.dailyHabitStates);
           if (p.mentorFeedbacks) setMentorFeedbacks(p.mentorFeedbacks);
+          if (p.manualMentorMarks) setManualMentorMarks(p.manualMentorMarks);
+          if (p.certificates && Array.isArray(p.certificates)) setCertificates(p.certificates);
+          if (p.mockInterviews && Array.isArray(p.mockInterviews)) setMockInterviews(p.mockInterviews);
+          if (p.peerReviews && Array.isArray(p.peerReviews)) setPeerReviews(p.peerReviews);
+          if (p.resumeProfiles) setResumeProfiles(p.resumeProfiles);
+          if (p.userQuickLinks) setUserQuickLinks(p.userQuickLinks);
           if (p.pointsLedger) setPointsLedger(p.pointsLedger);
           if (p.automationLogs) setAutomationLogs(p.automationLogs);
           if (p.deletedAnnIds) setDeletedAnnIds(new Set(p.deletedAnnIds));
@@ -341,6 +353,45 @@ export const AppProvider = ({ children }) => {
             }
             if (serverData.mentorFeedbacks) {
               setMentorFeedbacks(prev => ({ ...prev, ...serverData.mentorFeedbacks }));
+            }
+            if (serverData.manualMentorMarks) {
+              setManualMentorMarks(prev => ({ ...prev, ...serverData.manualMentorMarks }));
+            }
+            if (serverData.certificates && Array.isArray(serverData.certificates)) {
+              setCertificates(prevLocal => {
+                const mergedMap = new Map();
+                prevLocal.forEach(c => mergedMap.set(c.id, c));
+                serverData.certificates.forEach(c => mergedMap.set(c.id, c));
+                return Array.from(mergedMap.values());
+              });
+            }
+            if (serverData.mockInterviews && Array.isArray(serverData.mockInterviews)) {
+              setMockInterviews(prevLocal => {
+                const mergedMap = new Map();
+                prevLocal.forEach(m => mergedMap.set(m.id, m));
+                serverData.mockInterviews.forEach(m => mergedMap.set(m.id, m));
+                return Array.from(mergedMap.values());
+              });
+            }
+            if (serverData.peerReviews && Array.isArray(serverData.peerReviews)) {
+              setPeerReviews(prevLocal => {
+                const mergedMap = new Map();
+                prevLocal.forEach(pr => mergedMap.set(pr.id, pr));
+                serverData.peerReviews.forEach(pr => mergedMap.set(pr.id, pr));
+                return Array.from(mergedMap.values());
+              });
+            }
+            if (serverData.resumeProfiles) {
+              setResumeProfiles(prev => ({ ...prev, ...serverData.resumeProfiles }));
+            }
+            if (serverData.userQuickLinks) {
+              setUserQuickLinks(prev => ({ ...prev, ...serverData.userQuickLinks }));
+            }
+            if (serverData.pointsLedger && Array.isArray(serverData.pointsLedger)) {
+              setPointsLedger(serverData.pointsLedger);
+            }
+            if (serverData.automationLogs && Array.isArray(serverData.automationLogs)) {
+              setAutomationLogs(serverData.automationLogs);
             }
             if (serverData.deletedAnnIds) {
               setDeletedAnnIds(new Set(serverData.deletedAnnIds));
@@ -652,9 +703,12 @@ export const AppProvider = ({ children }) => {
       verification_id: verificationId
     };
 
-    setCertificates(prev => [newCert, ...prev]);
+    setCertificates(prev => {
+      const updated = [newCert, ...prev];
+      saveAndBroadcastState({ certificates: updated });
+      return updated;
+    });
     await issueCertificateInSupabase(newCert);
-    saveAndBroadcastState({ certificates: [newCert, ...certificates] });
 
     logAutomationAction(
       `🏅 Auto-Certificate Issued to ${student.name} (${verificationId})`,
@@ -699,23 +753,29 @@ export const AppProvider = ({ children }) => {
       status: 'requested'
     };
 
-    setMockInterviews(prev => [newBooking, ...prev]);
-    saveAndBroadcastState({ mockInterviews: [newBooking, ...mockInterviews] });
+    setMockInterviews(prev => {
+      const updated = [newBooking, ...prev];
+      saveAndBroadcastState({ mockInterviews: updated });
+      return updated;
+    });
     return newBooking;
   };
 
   const updateMockInterviewStatus = (mockId, statusStr, scheduledTimeStr) => {
-    setMockInterviews(prev => prev.map(m => {
-      if (m.id === mockId) {
-        return { 
-          ...m, 
-          status: statusStr, 
-          scheduled_at: scheduledTimeStr || m.scheduled_at 
-        };
-      }
-      return m;
-    }));
-    saveAndBroadcastState({ mockInterviews: mockInterviews.map(m => m.id === mockId ? { ...m, status: statusStr, scheduled_at: scheduledTimeStr || m.scheduled_at } : m) });
+    setMockInterviews(prev => {
+      const updated = prev.map(m => {
+        if (m.id === mockId) {
+          return { 
+            ...m, 
+            status: statusStr, 
+            scheduled_at: scheduledTimeStr || m.scheduled_at 
+          };
+        }
+        return m;
+      });
+      saveAndBroadcastState({ mockInterviews: updated });
+      return updated;
+    });
   };
 
   // Feature #4: Peer Code Review State & Actions
@@ -752,8 +812,11 @@ export const AppProvider = ({ children }) => {
       created_at: new Date().toISOString()
     };
 
-    setPeerReviews(prev => [newReview, ...prev]);
-    saveAndBroadcastState({ peerReviews: [newReview, ...peerReviews] });
+    setPeerReviews(prev => {
+      const updated = [newReview, ...prev];
+      saveAndBroadcastState({ peerReviews: updated });
+      return updated;
+    });
 
     logAutomationAction(
       `⭐ Peer Code Review Completed by ${currentUser.name} for ${submitterName} (+2 Pts Bonus)`,
