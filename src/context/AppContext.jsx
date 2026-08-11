@@ -2192,6 +2192,7 @@ export const AppProvider = ({ children }) => {
       removeStudentFromTeam,
       postAnnouncement,
       deleteAnnouncement,
+      deletedAnnIds,
       exportDatabase,
       importDatabase,
       syncCloudDatabase,

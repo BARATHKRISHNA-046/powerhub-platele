@@ -15,7 +15,7 @@ export default function MentorDashboard() {
     aiTeamAvatars, googleMeetConfig, googleDriveUrl, googleClassroomUrl, communityHubUrl,
     dailyHabitStates, getStudentHabitRecord, mentorFeedbacks, saveMentorFeedback, batches,
     updateGoogleSuiteConfig, reviewSubmission, createTeam, deleteTeam, removeStudentFromTeam,
-    postAnnouncement, deleteAnnouncement, overrideScore,
+    postAnnouncement, deleteAnnouncement, deletedAnnIds, overrideScore,
     deleteStudentProfile, createStudentProfile,
     manualMentorMarks, setStudentManualMarks, issueCertificate,
     deletionLog, softDeleteRecord, restoreSoftDeletedRecord,
