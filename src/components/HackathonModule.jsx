@@ -40,6 +40,7 @@ export default function HackathonModule() {
   const [searchQuery, setSearchQuery] = useState('');
   const [newTeamName, setNewTeamName] = useState('');
   const [selectedInviteStudentId, setSelectedInviteStudentId] = useState('');
+  const [editingTeamRepoUrl, setEditingTeamRepoUrl] = useState({});
 
   // Carousel Ref & Scroll Handler
   const psCarouselRef = React.useRef(null);
@@ -877,6 +878,62 @@ export default function HackathonModule() {
                     )}
                   </div>
 
+                  {/* TEAM GITHUB REPOSITORY LINK CARD */}
+                  <div className="card" style={{ background: '#ffffff', border: '1.5px solid #e2e8f0', borderRadius: '20px', padding: '1.35rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
+                        <FolderGit2 size={22} style={{ color: '#2563eb' }} />
+                        <h3 style={{ fontSize: '1.05rem', fontWeight: '800', color: '#0f172a', margin: 0 }}>
+                          Team GitHub Repository Link
+                        </h3>
+                      </div>
+
+                      {myTeam.githubRepoUrl && (
+                        <a 
+                          href={myTeam.githubRepoUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          style={{ background: '#0f172a', color: '#ffffff', padding: '0.4rem 0.85rem', borderRadius: '10px', fontSize: '0.78rem', fontWeight: '800', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                        >
+                          <Github size={14} /> Open Repository ↗
+                        </a>
+                      )}
+                    </div>
+
+                    <p style={{ fontSize: '0.82rem', color: '#64748b', margin: '0 0 0.85rem', lineHeight: '1.45' }}>
+                      All assigned team members can add or update your team's official GitHub project repository link. Mentors evaluate your code commit history directly from this link.
+                    </p>
+
+                    {/* REPO EDIT INPUT / SAVE BUTTON */}
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <input 
+                        type="url"
+                        placeholder="https://github.com/your-org/your-repo-name"
+                        value={editingTeamRepoUrl[myTeam.id] !== undefined ? editingTeamRepoUrl[myTeam.id] : (myTeam.githubRepoUrl || '')}
+                        onChange={e => {
+                          const val = e.target.value;
+                          setEditingTeamRepoUrl(prev => ({ ...prev, [myTeam.id]: val }));
+                        }}
+                        style={{ flex: 1, minWidth: '260px', padding: '0.55rem 0.85rem', borderRadius: '10px', border: '1.5px solid #cbd5e1', fontSize: '0.85rem', fontWeight: '600' }}
+                      />
+
+                      <button
+                        onClick={() => {
+                          const urlToSave = editingTeamRepoUrl[myTeam.id] !== undefined ? editingTeamRepoUrl[myTeam.id] : (myTeam.githubRepoUrl || '');
+                          if (!urlToSave.trim()) {
+                            alert('Please enter a valid GitHub repository URL.');
+                            return;
+                          }
+                          updateHackathonTeam(myTeam.id, { githubRepoUrl: urlToSave.trim() });
+                          alert('✅ Team GitHub repository link saved successfully!');
+                        }}
+                        style={{ background: '#2563eb', color: '#ffffff', border: 'none', padding: '0.55rem 1.1rem', borderRadius: '10px', fontSize: '0.82rem', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                      >
+                        <Save size={14} /> Save Repo Link
+                      </button>
+                    </div>
+                  </div>
+
                   {/* TEAM MEMBERS ROSTER */}
                   <div className="card" style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '20px', padding: '1.35rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
@@ -1470,6 +1527,7 @@ export default function HackathonModule() {
                       <th style={{ padding: '0.75rem 1rem', fontWeight: '800', color: '#475569' }}>Team Leader</th>
                       <th style={{ padding: '0.75rem 1rem', fontWeight: '800', color: '#475569' }}>Members</th>
                       <th style={{ padding: '0.75rem 1rem', fontWeight: '800', color: '#475569' }}>Chosen PS</th>
+                      <th style={{ padding: '0.75rem 1rem', fontWeight: '800', color: '#475569' }}>GitHub Repo</th>
                       <th style={{ padding: '0.75rem 1rem', fontWeight: '800', color: '#475569' }}>Status</th>
                       <th style={{ padding: '0.75rem 1rem', fontWeight: '800', color: '#475569' }}>Actions</th>
                     </tr>
@@ -1500,6 +1558,18 @@ export default function HackathonModule() {
                                 </select>
                               </td>
                               <td style={{ padding: '0.65rem 1rem' }}>
+                                <input 
+                                  type="url" 
+                                  placeholder="https://github.com/..."
+                                  value={editingTeamRepoUrl[t.id] !== undefined ? editingTeamRepoUrl[t.id] : (t.githubRepoUrl || '')}
+                                  onChange={e => {
+                                    const val = e.target.value;
+                                    setEditingTeamRepoUrl(prev => ({ ...prev, [t.id]: val }));
+                                  }}
+                                  style={{ padding: '0.35rem 0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.78rem', width: '160px' }} 
+                                />
+                              </td>
+                              <td style={{ padding: '0.65rem 1rem' }}>
                                 <select value={editTeamStatus} onChange={e => setEditTeamStatus(e.target.value)} style={{ padding: '0.35rem 0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.78rem', fontWeight: '800' }}>
                                   <option value="draft">draft</option>
                                   <option value="submitted">submitted</option>
@@ -1512,10 +1582,12 @@ export default function HackathonModule() {
                                   <button onClick={() => setEditingTeamId(null)} style={{ background: '#e2e8f0', color: '#475569', border: 'none', padding: '0.3rem 0.55rem', borderRadius: '6px', fontSize: '0.72rem', fontWeight: '800', cursor: 'pointer' }}>Cancel</button>
                                   <button 
                                     onClick={() => {
+                                      const repoToSave = editingTeamRepoUrl[t.id] !== undefined ? editingTeamRepoUrl[t.id] : (t.githubRepoUrl || '');
                                       updateHackathonTeam(t.id, {
                                         teamName: editTeamName,
                                         problemStatementId: editTeamPsId || null,
-                                        status: editTeamStatus
+                                        status: editTeamStatus,
+                                        githubRepoUrl: repoToSave.trim()
                                       });
                                       setEditingTeamId(null);
                                       alert(`✅ Team "${editTeamName}" updated!`);
@@ -1536,6 +1608,20 @@ export default function HackathonModule() {
                             <td style={{ padding: '0.85rem 1rem', fontWeight: '700', color: '#2563eb' }}>👑 {leader.name}</td>
                             <td style={{ padding: '0.85rem 1rem', color: '#475569' }}>{members.length} Members</td>
                             <td style={{ padding: '0.85rem 1rem', color: '#334155', maxWidth: '240px' }}>{ps ? ps.title : 'Not Selected'}</td>
+                            <td style={{ padding: '0.85rem 1rem' }}>
+                              {t.githubRepoUrl ? (
+                                <a 
+                                  href={t.githubRepoUrl} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer" 
+                                  style={{ background: '#0f172a', color: '#ffffff', padding: '0.2rem 0.55rem', borderRadius: '6px', fontSize: '0.7rem', fontWeight: '800', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
+                                >
+                                  <Github size={12} /> Repo ↗
+                                </a>
+                              ) : (
+                                <span style={{ fontSize: '0.72rem', color: '#94a3b8', fontStyle: 'italic' }}>Not Added</span>
+                              )}
+                            </td>
                             <td style={{ padding: '0.85rem 1rem' }}>
                               <span style={{ 
                                 background: t.status === 'shortlisted' ? '#dcfce7' : t.status === 'rejected' ? '#fee2e2' : t.status === 'submitted' ? '#fef3c7' : '#f1f5f9',
@@ -1600,6 +1686,18 @@ export default function HackathonModule() {
                                 <span style={{ fontSize: '0.78rem', color: '#2563eb', fontWeight: '800' }}>
                                   Target PS: {ps.title}
                                 </span>
+                                {team.githubRepoUrl && (
+                                  <div style={{ marginTop: '0.35rem' }}>
+                                    <a 
+                                      href={team.githubRepoUrl} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer" 
+                                      style={{ background: '#0f172a', color: '#ffffff', padding: '0.2rem 0.6rem', borderRadius: '6px', fontSize: '0.72rem', fontWeight: '800', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
+                                    >
+                                      <Github size={12} /> Team Code Repo ↗
+                                    </a>
+                                  </div>
+                                )}
                               </div>
 
                               <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: '700' }}>
@@ -1812,6 +1910,19 @@ export default function HackathonModule() {
                             <div style={{ fontWeight: '800', color: '#0f172a', marginBottom: '0.2rem' }}>Problem Statement:</div>
                             <div style={{ color: '#475569' }}>{ps.title}</div>
                           </div>
+
+                          {team.githubRepoUrl && (
+                            <div style={{ background: '#ffffff', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '0.6rem 0.75rem', fontSize: '0.8rem', marginBottom: '0.75rem' }}>
+                              <a 
+                                href={team.githubRepoUrl} 
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                style={{ background: '#0f172a', color: '#ffffff', padding: '0.25rem 0.65rem', borderRadius: '6px', fontSize: '0.72rem', fontWeight: '800', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
+                              >
+                                <Github size={12} /> Project GitHub Repo ↗
+                              </a>
+                            </div>
+                          )}
 
                           {sub && sub.mentorFeedback && (
                             <div style={{ fontSize: '0.78rem', color: '#166534', fontStyle: 'italic', background: '#f0fdf4', padding: '0.5rem', borderRadius: '8px', marginBottom: '0.75rem' }}>
