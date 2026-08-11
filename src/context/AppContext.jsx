@@ -125,7 +125,12 @@ export const AppProvider = ({ children }) => {
   // Primary State declarations with localStorage initialization fallback
   const [users, setUsers] = useState(() => (savedDb?.users || INITIAL_USERS));
   const [teams, setTeams] = useState(() => (savedDb?.teams || INITIAL_TEAMS));
-  const [submissions, setSubmissions] = useState(() => (savedDb?.submissions || INITIAL_SUBMISSIONS));
+  const [submissions, setSubmissions] = useState(() => {
+    const mergedMap = new Map();
+    INITIAL_SUBMISSIONS.forEach(s => { if (s && s.id) mergedMap.set(s.id, s); });
+    (savedDb?.submissions || []).forEach(s => { if (s && s.id) mergedMap.set(s.id, s); });
+    return Array.from(mergedMap.values());
+  });
   const [skillRatings, setSkillRatings] = useState(() => (savedDb?.skillRatings || INITIAL_SKILL_RATINGS));
   const [announcements, setAnnouncements] = useState(() => (savedDb?.announcements || INITIAL_ANNOUNCEMENTS));
   const [auditLogs, setAuditLogs] = useState(() => (savedDb?.auditLogs || INITIAL_AUDIT_LOGS));
@@ -343,6 +348,7 @@ export const AppProvider = ({ children }) => {
             if (serverData.submissions && Array.isArray(serverData.submissions)) {
               setSubmissions(prevLocal => {
                 const mergedMap = new Map();
+                INITIAL_SUBMISSIONS.forEach(s => { if (s && s.id) mergedMap.set(s.id, s); });
                 prevLocal.forEach(s => { if (s && s.id) mergedMap.set(s.id, s); });
                 serverData.submissions.forEach(s => {
                   if (s && s.id) {
