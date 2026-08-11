@@ -33,7 +33,7 @@ export default function StudentDashboard() {
     dailyHabitStates, selectedScheduleMonth, setSelectedScheduleMonth, 
     domainRoadmaps, toggleDailyHabit, getStudentHabitRecord, calculateStudentScore, submitWork,
     mentorFeedbacks, calculateStudentStreak, milestoneBadges, leaderboardHistory, registerPushSubscription,
-    userQuickLinks, trackQuickLinkClick, techNews, certificates,
+    userQuickLinks, trackQuickLinkClick, techNews, refreshTechNews, certificates,
     interviewQuestions, mockInterviews, bookMockInterview, peerReviews, submitPeerReview,
     hackathons, joinHackathon, resumeProfiles, updateResumeProfile
   } = useApp();
@@ -2231,8 +2231,8 @@ export default function StudentDashboard() {
                   <h2 style={{ fontSize: '1.35rem', fontWeight: '900', fontFamily: 'var(--font-heading)', color: '#0f172a' }}>
                     Tech Industry Pulse Daily Feed
                   </h2>
-                  <p style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                    Daily-updated announcements on Tech Layoffs, Hiring Drives & Openings
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    📅 Today's Live Feed ({new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}) • Auto-updated daily at 00:00 IST
                   </p>
                 </div>
               </div>
@@ -2295,7 +2295,17 @@ export default function StudentDashboard() {
               })}
             </div>
 
-            <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '0.85rem', marginTop: '0.85rem', display: 'flex', justifyContent: 'flex-end' }}>
+            <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '0.85rem', marginTop: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <button
+                onClick={() => {
+                  refreshTechNews && refreshTechNews();
+                  alert("✅ Refreshed today's latest daily tech news feed!");
+                }}
+                style={{ background: '#f8fafc', color: '#0f172a', border: '1.5px solid #cbd5e1', padding: '0.45rem 0.85rem', borderRadius: '10px', fontSize: '0.78rem', fontWeight: '800', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+              >
+                🔄 Refresh Today's Feed
+              </button>
+
               <button 
                 onClick={() => setShowTechNewsModal(false)}
                 className="btn-primary" 

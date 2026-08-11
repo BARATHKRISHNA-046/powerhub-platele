@@ -649,62 +649,75 @@ export interface TechNewsItem {
   fetched_at: string;
 }
 
-export const INITIAL_TECH_NEWS: TechNewsItem[] = [
-  {
-    id: 'news-1',
-    headline: 'Major AI Cloud Provider Announces 500+ New Fullstack & Infra Engineer Openings',
-    summary: 'Expanding global engineering hubs with heavy hiring across distributed systems and Vite/React frontends.',
-    source: 'TechCrunch',
-    category: 'hiring',
-    url: 'https://techcrunch.com',
-    published_at: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
-    fetched_at: new Date().toISOString()
-  },
-  {
-    id: 'news-2',
-    headline: 'Global Tech Enterprise Restructures Legacy Divisions to Focus on Edge AI',
-    summary: 'Reallocating software talent to autonomous systems and embedded micro-architectures.',
-    source: 'The Verge',
-    category: 'layoff',
-    url: 'https://theverge.com',
-    published_at: new Date(Date.now() - 5 * 3600 * 1000).toISOString(),
-    fetched_at: new Date().toISOString()
-  },
-  {
-    id: 'news-3',
-    headline: 'Automotive & Autonomous Vehicle Giant Opens 200+ Embedded IoT Positions',
-    summary: 'Massive recruitment drive for CAN Bus, AUTOSAR, and C++ firmware engineers.',
-    source: 'Business Insider',
-    category: 'opening',
-    url: 'https://businessinsider.com',
-    published_at: new Date(Date.now() - 8 * 3600 * 1000).toISOString(),
-    fetched_at: new Date().toISOString()
-  },
-  {
-    id: 'news-4',
-    headline: 'Fintech Unicorn Expands India R&D Hub with 150 Senior & Junior Software Roles',
-    summary: 'Actively recruiting fullstack React developers and backend microservices engineers.',
-    source: 'Reuters Tech',
-    category: 'hiring',
-    url: 'https://reuters.com/technology',
-    published_at: new Date(Date.now() - 14 * 3600 * 1000).toISOString(),
-    fetched_at: new Date().toISOString()
-  },
-  {
-    id: 'news-5',
-    headline: 'Silicon Valley Semiconductor Leader Hires 300+ Embedded Systems Engineers',
-    summary: 'Scaling next-gen SoC development and RISC-V firmware teams globally.',
-    source: 'VentureBeat',
-    category: 'opening',
-    url: 'https://venturebeat.com',
-    published_at: new Date(Date.now() - 22 * 3600 * 1000).toISOString(),
-    fetched_at: new Date().toISOString()
+export function getDailyUpdatedTechNews(): TechNewsItem[] {
+  const now = new Date();
+  const dateStr = now.toISOString().split('T')[0];
+  
+  let hash = 0;
+  for (let i = 0; i < dateStr.length; i++) {
+    hash = (hash << 5) - hash + dateStr.charCodeAt(i);
+    hash |= 0;
   }
-];
+  const seed = Math.abs(hash);
+
+  const POOL_HIRING: Array<Omit<TechNewsItem, 'id' | 'published_at' | 'fetched_at'>> = [
+    { headline: "Major AI Cloud Provider Announces 600+ New Fullstack & Infra Openings", summary: "Expanding global engineering hubs with heavy hiring across distributed systems and Vite/React frontends.", source: "TechCrunch", category: "hiring", url: "https://techcrunch.com" },
+    { headline: "Fintech Unicorn Expands India R&D Hub with 250 Senior & Junior Software Roles", summary: "Actively recruiting fullstack React developers and backend microservices engineers.", source: "Reuters Tech", category: "hiring", url: "https://reuters.com/technology" },
+    { headline: "Global E-Commerce Giant Launches 400+ India Engineering Graduate Hiring Drive", summary: "Recruiting final-year B.Tech & MCA students for Cloud, Frontend, and Data Pipeline teams.", source: "Economic Times Tech", category: "hiring", url: "https://economictimes.indiatimes.com/tech" },
+    { headline: "Leading Cybersecurity Firm Hires 180+ SOC Analysts & Security Engineers in Bengaluru", summary: "Broad recruitment drive targeting cloud security, penetration testing, and zero-trust protocol developers.", source: "Hacker News", category: "hiring", url: "https://news.ycombinator.com" },
+    { headline: "AI Chipmaker Opens 350+ SoC Architecture & Hardware Verification Jobs", summary: "Massive expansion in Hyderabad and Pune R&D centers for VLSI and Embedded C++ engineers.", source: "EE Times", category: "hiring", url: "https://eetimes.com" },
+    { headline: "Global SaaS Platform Hires 200+ Remote React & Node.js Developers", summary: "Fully remote roles across APAC and EMEA for fullstack engineers with Supabase and GraphQL experience.", source: "VentureBeat", category: "hiring", url: "https://venturebeat.com" }
+  ];
+
+  const POOL_LAYOFF: Array<Omit<TechNewsItem, 'id' | 'published_at' | 'fetched_at'>> = [
+    { headline: "Global Tech Enterprise Restructures Legacy Divisions to Focus on Edge AI", summary: "Reallocating software talent to autonomous systems and embedded micro-architectures.", source: "The Verge", category: "layoff", url: "https://theverge.com" },
+    { headline: "Legacy Enterprise Software Vendor Cuts 8% Workforce in Shift to Generative AI", summary: "Consolidating internal tooling teams to accelerate AI agent adoption.", source: "Bloomberg Tech", category: "layoff", url: "https://bloomberg.com/technology" },
+    { headline: "PC & Server OEM Reorganizes Global Hardware Division Amid AI PC Pivot", summary: "Trimming legacy supply chain roles while scaling NPU and hardware acceleration teams.", source: "Ars Technica", category: "layoff", url: "https://arstechnica.com" },
+    { headline: "AdTech Platform Trims Non-Core Business Lines to Invest in Privacy ML", summary: "Restructuring product teams to double down on zero-party data and context engines.", source: "Business Insider", category: "layoff", url: "https://businessinsider.com" }
+  ];
+
+  const POOL_OPENINGS: Array<Omit<TechNewsItem, 'id' | 'published_at' | 'fetched_at'>> = [
+    { headline: "Automotive & Autonomous Vehicle Giant Opens 200+ Embedded IoT Positions", summary: "Massive recruitment drive for CAN Bus, AUTOSAR, and C++ firmware engineers.", source: "Business Insider", category: "opening", url: "https://businessinsider.com" },
+    { headline: "Silicon Valley Semiconductor Leader Hires 300+ Embedded Systems Engineers", summary: "Scaling next-gen SoC development and RISC-V firmware teams globally.", source: "VentureBeat", category: "opening", url: "https://venturebeat.com" },
+    { headline: "HealthTech Pioneer Openings for 120+ AI Medical Image Processing Engineers", summary: "Hiring PyTorch, Computer Vision, and DICOM pipeline developers for diagnostic AI suites.", source: "MIT Technology Review", category: "opening", url: "https://technologyreview.com" },
+    { headline: "Next-Gen Mobile OS Creator Opens 150+ Cross-Platform Flutter & Native Roles", summary: "Building next-generation mobile UI frameworks and low-latency client runtime engines.", source: "Android Police", category: "opening", url: "https://androidpolice.com" },
+    { headline: "Global Cloud Storage Provider Opens 100+ Reliability & Storage Kernel Openings", summary: "Recruiting Linux kernel, Rust, and distributed storage infrastructure developers.", source: "ZDNet", category: "opening", url: "https://zdnet.com" }
+  ];
+
+  const POOL_TRENDS: Array<Omit<TechNewsItem, 'id' | 'published_at' | 'fetched_at'>> = [
+    { headline: "Open-Source AI Foundation Releases Ultra-Fast 70B Parameter Local Model", summary: "Outperforms proprietary API benchmarks while running efficiently on consumer hardware.", source: "Github Trending", category: "hiring", url: "https://github.com/trending" },
+    { headline: "India IT Sector Reports 18% QoQ Surge in Fullstack & Cloud AI Engineer Demand", summary: "NASSCOM industry report highlights unprecedented demand for React, Node, and Supabase skillsets.", source: "LiveMint Tech", category: "opening", url: "https://livemint.com/technology" },
+    { headline: "Quantum Computing Startup Achieves 100-Qubit Error Correction Milestone", summary: "Paves way for commercial quantum simulation across drug discovery and cryptography.", source: "Nature Electronics", category: "opening", url: "https://nature.com" }
+  ];
+
+  const selected: Array<Omit<TechNewsItem, 'id' | 'published_at' | 'fetched_at'>> = [];
+  const pick = (arr: any[], indexOffset: number) => arr[(seed + indexOffset) % arr.length];
+
+  selected.push(pick(POOL_HIRING, 0));
+  selected.push(pick(POOL_LAYOFF, 1));
+  selected.push(pick(POOL_OPENINGS, 2));
+  selected.push(pick(POOL_HIRING, 3));
+  selected.push(pick(POOL_OPENINGS, 4));
+  selected.push(pick(POOL_TRENDS, 5));
+
+  const hoursAgo = [1, 3, 5, 8, 12, 18];
+  return selected.map((item, idx) => {
+    const publishedAt = new Date(now.getTime() - hoursAgo[idx] * 3600 * 1000).toISOString();
+    return {
+      id: `news-${dateStr}-${idx + 1}`,
+      ...item,
+      published_at: publishedAt,
+      fetched_at: now.toISOString()
+    } as TechNewsItem;
+  });
+}
+
+export const INITIAL_TECH_NEWS: TechNewsItem[] = getDailyUpdatedTechNews();
 
 export async function fetchTechNewsFromSupabase(): Promise<TechNewsItem[]> {
+  const dailyNews = getDailyUpdatedTechNews();
   if (!isSupabaseConfigured) {
-    return INITIAL_TECH_NEWS;
+    return dailyNews;
   }
 
   try {
@@ -715,13 +728,13 @@ export async function fetchTechNewsFromSupabase(): Promise<TechNewsItem[]> {
       .limit(10);
 
     if (error || !data || data.length === 0) {
-      await supabase.from('tech_news').upsert(INITIAL_TECH_NEWS);
-      return INITIAL_TECH_NEWS;
+      await supabase.from('tech_news').upsert(dailyNews);
+      return dailyNews;
     }
 
     return data as TechNewsItem[];
   } catch (err) {
-    return INITIAL_TECH_NEWS;
+    return dailyNews;
   }
 }
 
