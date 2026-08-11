@@ -343,9 +343,22 @@ export const AppProvider = ({ children }) => {
             if (serverData.submissions && Array.isArray(serverData.submissions)) {
               setSubmissions(prevLocal => {
                 const mergedMap = new Map();
-                prevLocal.forEach(s => mergedMap.set(s.id, s));
-                serverData.submissions.forEach(s => mergedMap.set(s.id, s));
-                return Array.from(mergedMap.values()).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+                prevLocal.forEach(s => { if (s && s.id) mergedMap.set(s.id, s); });
+                serverData.submissions.forEach(s => {
+                  if (s && s.id) {
+                    const existing = mergedMap.get(s.id);
+                    if (!existing) {
+                      mergedMap.set(s.id, s);
+                    } else {
+                      const localTime = new Date(existing.updatedAt || existing.submittedAt || existing.createdAt || 0).getTime();
+                      const serverTime = new Date(s.updatedAt || s.submittedAt || s.createdAt || 0).getTime();
+                      if (serverTime >= localTime || (s.status && s.status !== existing.status)) {
+                        mergedMap.set(s.id, { ...existing, ...s });
+                      }
+                    }
+                  }
+                });
+                return Array.from(mergedMap.values()).sort((a, b) => new Date(b.submittedAt || b.createdAt || 0).getTime() - new Date(a.submittedAt || a.createdAt || 0).getTime());
               });
             }
             if (serverData.dailyHabitStates) {

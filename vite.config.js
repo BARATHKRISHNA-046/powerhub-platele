@@ -5,6 +5,33 @@ import path from 'path';
 import { initAutomationCronScheduler } from './src/server/automationCron.js';
 import { sendWebPushNotification } from './src/server/pushService.js';
 
+function mergeEntityArrays(existingArr = [], incomingArr = []) {
+  if (!Array.isArray(existingArr)) existingArr = [];
+  if (!Array.isArray(incomingArr)) incomingArr = [];
+
+  const map = new Map();
+  existingArr.forEach(item => {
+    if (item && item.id) map.set(String(item.id), item);
+  });
+  incomingArr.forEach(item => {
+    if (item && item.id) {
+      const key = String(item.id);
+      const existing = map.get(key);
+      if (!existing) {
+        map.set(key, item);
+      } else {
+        const existingTime = new Date(existing.updatedAt || existing.submittedAt || existing.createdAt || existing.created_at || 0).getTime();
+        const incomingTime = new Date(item.updatedAt || item.submittedAt || item.createdAt || item.created_at || 0).getTime();
+        if (incomingTime >= existingTime || (item.status && item.status !== existing.status)) {
+          map.set(key, { ...existing, ...item });
+        }
+      }
+    }
+  });
+
+  return Array.from(map.values());
+}
+
 function powerhubSyncPlugin() {
   const storePath = path.resolve(__dirname, 'server_db_store.json');
   let cronInitialized = false;
@@ -21,9 +48,28 @@ function powerhubSyncPlugin() {
   const writeStore = (data) => {
     try {
       const current = readStore() || {};
-      const updated = { ...current, ...data, updatedAt: new Date().toISOString() };
-      fs.writeFileSync(storePath, JSON.stringify(updated, null, 2), 'utf8');
-      return updated;
+      const arrayFields = [
+        'submissions', 'announcements', 'users', 'teams', 
+        'problemStatements', 'hackathonTeams', 'teamMembers', 
+        'ideaSubmissions', 'certificates', 'mockInterviews', 
+        'peerReviews', 'pointsLedger', 'automationLogs'
+      ];
+
+      const mergedData = { ...current };
+
+      Object.keys(data).forEach(key => {
+        if (arrayFields.includes(key) && Array.isArray(data[key])) {
+          mergedData[key] = mergeEntityArrays(current[key], data[key]);
+        } else if (typeof data[key] === 'object' && data[key] !== null && !Array.isArray(data[key])) {
+          mergedData[key] = { ...(current[key] || {}), ...data[key] };
+        } else {
+          mergedData[key] = data[key];
+        }
+      });
+
+      mergedData.updatedAt = new Date().toISOString();
+      fs.writeFileSync(storePath, JSON.stringify(mergedData, null, 2), 'utf8');
+      return mergedData;
     } catch (e) {
       console.error('Error writing server store:', e);
       return null;
