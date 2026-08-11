@@ -374,6 +374,15 @@ export const AppProvider = ({ children }) => {
             if (serverData.isSihLocked !== undefined) {
               setIsSihLocked(Boolean(serverData.isSihLocked));
             }
+
+            // Persist latest cloud server snapshot to local storage for instant offline/mount access
+            try {
+              const currentLocal = loadSavedDatabase() || {};
+              localStorage.setItem(DB_STORAGE_KEY, JSON.stringify({
+                ...currentLocal,
+                ...serverData
+              }));
+            } catch (e) {}
           }
         }
       } catch (err) {}
