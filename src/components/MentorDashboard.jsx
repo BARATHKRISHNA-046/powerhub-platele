@@ -1171,23 +1171,30 @@ export default function MentorDashboard() {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {announcements.map(ann => (
-              <div key={ann.id} style={{ padding: '1rem', background: '#f8fafc', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem' }}>
-                <div>
-                  <h3 style={{ fontSize: '1rem', fontWeight: '700', marginBottom: '0.35rem' }}>📌 {ann.title}</h3>
-                  <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: '1.45', marginBottom: '0.5rem' }}>{ann.message}</p>
-                  <span style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>Posted by {ann.authorName} • {new Date(ann.createdAt).toLocaleDateString()}</span>
-                </div>
+            {announcements
+              .filter(a => !a.deleted_at && (!deletedAnnIds || !deletedAnnIds.has(a.id)))
+              .map(ann => (
+                <div key={ann.id} style={{ padding: '1rem', background: '#f8fafc', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem' }}>
+                  <div>
+                    <h3 style={{ fontSize: '1rem', fontWeight: '700', marginBottom: '0.35rem' }}>📌 {ann.title}</h3>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: '1.45', marginBottom: '0.5rem' }}>{ann.message}</p>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>Posted by {ann.authorName} • {new Date(ann.createdAt).toLocaleDateString()}</span>
+                  </div>
 
-                {/* Delete Announcement Button */}
-                <button
-                  onClick={() => deleteAnnouncement(ann.id)}
-                  style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', padding: '0.4rem 0.6rem', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '0.3rem', whiteSpace: 'nowrap' }}
-                >
-                  <Trash2 size={14} /> Delete Notice
-                </button>
-              </div>
-            ))}
+                  {/* Delete Announcement Button */}
+                  <button
+                    onClick={() => {
+                      if (window.confirm(`Are you sure you want to delete announcement "${ann.title}"?`)) {
+                        deleteAnnouncement(ann.id);
+                        alert(`Deleted announcement "${ann.title}".`);
+                      }
+                    }}
+                    style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', padding: '0.4rem 0.65rem', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '0.3rem', whiteSpace: 'nowrap', fontWeight: '700' }}
+                  >
+                    <Trash2 size={14} /> Delete Notice
+                  </button>
+                </div>
+              ))}
           </div>
         </div>
       )}

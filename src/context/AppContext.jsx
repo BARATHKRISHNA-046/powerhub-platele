@@ -1828,9 +1828,9 @@ export const AppProvider = ({ children }) => {
   };
 
   // Section 6: Soft Delete Action (Mentor-Only with mandatory reason and deletion audit log)
-  const softDeleteRecord = (recordType, recordId, recordTitle, reason) => {
-    const isMentorRole = currentUser?.role === 'mentor' || currentUser?.email === 'barathkrishnah@gmail.com' || currentUser?.email === 'barathkrishna046@gmail.com';
-    if (!currentUser || !isMentorRole) {
+  const softDeleteRecord = (recordType, recordId, recordTitle, reason = 'Mentor action') => {
+    const isMentorRole = currentRoleView === 'mentor' || currentUser?.role === 'mentor' || isMentorEmail(currentUser?.email) || currentUser?.email === 'barathkrishnah@gmail.com' || currentUser?.email === 'barathkrishna046@gmail.com';
+    if (!isMentorRole) {
       alert('⚠️ Only mentor roles can perform soft delete actions.');
       return false;
     }
@@ -1995,9 +1995,20 @@ export const AppProvider = ({ children }) => {
     logAutomationAction(`Removed student ${studentId} from team ${teamId}`, currentUser?.id, currentUser?.name);
   };
 
-  const deleteAnnouncement = (annId, reason = 'Mentor action') => {
-    const ann = announcements.find(a => a.id === annId);
-    softDeleteRecord('announcement', annId, ann?.title || annId, reason);
+  const deleteAnnouncement = (annId, reason = 'Mentor manual deletion') => {
+    setAnnouncements(prev => {
+      const updated = prev.filter(a => a.id !== annId);
+      const updatedDeletedSet = new Set(deletedAnnIds);
+      updatedDeletedSet.add(annId);
+      setDeletedAnnIds(updatedDeletedSet);
+      saveAndBroadcastState({
+        announcements: updated,
+        deletedAnnIds: Array.from(updatedDeletedSet)
+      });
+      return updated;
+    });
+    deleteAnnouncementFromSupabase(annId);
+    logAutomationAction(`Deleted announcement ${annId} (Reason: ${reason})`, currentUser?.id || 'mentor', currentUser?.name || 'Mentor');
   };
 
   const deleteStudentProfile = (studentId, reason = 'Mentor action') => {
