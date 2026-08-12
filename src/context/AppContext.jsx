@@ -1546,20 +1546,20 @@ export const AppProvider = ({ children }) => {
 
     const automatedScore = Math.max(0, (baseSubmissionPts + onTimeBonusPts + earlyBonusPts + streakBonusPts + peerReviewBonusPts + teamPts + leadershipPts + projectPts + firstSubmitterPts) - (penaltyPts + missedDeductionsPts));
 
-    const isManualSet = manualMentorMarks[studentId] !== undefined && manualMentorMarks[studentId] !== null;
-    const manualMarkVal = isManualSet ? Number(manualMentorMarks[studentId]) : null;
+    const isManualSet = manualMentorMarks[studentId] !== undefined && manualMentorMarks[studentId] !== null && manualMentorMarks[studentId] !== '';
+    const manualMarkVal = isManualSet ? Number(manualMentorMarks[studentId]) : 0;
 
-    if (isManualSet) {
+    if (isManualSet && manualMarkVal > 0) {
       pointsLedger.push({
         id: `leg-manual-${studentId}`,
         date: getISTDateDetails().todayStr,
         reason: '⭐ Direct Mentor Evaluation Marks (Assigned by Mentor)',
-        amount: `${manualMarkVal} pts`,
+        amount: `+${manualMarkVal} pts`,
         type: 'earn'
       });
     }
 
-    const totalScore = isManualSet ? manualMarkVal : automatedScore;
+    const totalScore = Math.max(0, automatedScore + manualMarkVal);
 
     const onTimePercentage = totalSubmissionsCount > 0 ? Math.round((onTimeCount / totalSubmissionsCount) * 100) : 0;
     const onTimeFraction = `${onTimeCount}/${totalSubmissionsCount} On-Time (${onTimePercentage}%)`;
