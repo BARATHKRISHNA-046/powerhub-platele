@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { 
   Trophy, Layers, Users, FileText, Plus, CheckCircle2, XCircle, Clock, 
-  Search, Filter, Send, Award, Sparkles, UserPlus, Trash2, ArrowRight, Shield, ChevronRight, ChevronLeft, Image as ImageIcon
+  Search, Filter, Send, Award, Sparkles, UserPlus, Trash2, ArrowRight, Shield, ChevronRight, ChevronLeft, Image as ImageIcon, FolderGit2
 } from 'lucide-react';
 
 export default function HackathonModule() {
