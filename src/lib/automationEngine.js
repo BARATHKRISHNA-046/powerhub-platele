@@ -21,7 +21,7 @@ export function logAutomationAction(currentLogs = [], { actionType, affectedStud
   return [newLog, ...currentLogs];
 }
 
-// B1: Auto-Tick Submission Calendar when student submits via Submission Panel
+// B1: Auto-Tick Submission Calendar when student submits via Submission Panel (marks BOTH 7pm and 11pm boxes)
 export function autoTickSubmissionCalendar(studentId, dateStr, habitsObj = {}) {
   const key = `${studentId}_${dateStr}`;
   const current = habitsObj[key] || { studyDone: false, submitDone: false };
@@ -29,6 +29,7 @@ export function autoTickSubmissionCalendar(studentId, dateStr, habitsObj = {}) {
     ...habitsObj,
     [key]: {
       ...current,
+      studyDone: true,
       submitDone: true,
       updatedAt: new Date().toISOString()
     }

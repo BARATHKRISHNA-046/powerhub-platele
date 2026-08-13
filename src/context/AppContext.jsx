@@ -1318,19 +1318,30 @@ export const AppProvider = ({ children }) => {
     const key = `${studentId}_${dateStr}`;
     const raw = dailyHabitStates[key] || dailyHabitStates[dateStr] || { studyDone: false, submitDone: false };
 
+    // Check if student has submitted work via submission panel for this date
+    const hasSubmission = (submissions || []).some(s => 
+      (s.studentId === studentId || s.student_id === studentId || s.userId === studentId) &&
+      (s.dateStr === dateStr || (s.submittedAt && s.submittedAt.slice(0, 10) === dateStr) || (s.createdAt && s.createdAt.slice(0, 10) === dateStr))
+    );
+
+    const studyDone = Boolean(raw.studyDone || hasSubmission);
+    const submitDone = Boolean(raw.submitDone || hasSubmission);
+
     const isPast = dateStr < todayStr;
     const isToday = dateStr === todayStr;
 
     let isMissed = false;
-    if (isPast && !raw.submitDone) {
-      isMissed = true;
-    } else if (isToday && isPast11PM && !raw.submitDone) {
-      isMissed = true;
+    if (!submitDone) {
+      if (isPast) {
+        isMissed = true;
+      } else if (isToday && isPast11PM) {
+        isMissed = true;
+      }
     }
 
     return {
-      studyDone: Boolean(raw.studyDone),
-      submitDone: Boolean(raw.submitDone),
+      studyDone,
+      submitDone,
       isMissed
     };
   };
