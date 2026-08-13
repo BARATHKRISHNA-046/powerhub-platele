@@ -157,8 +157,61 @@ export default function UserProfileModal({ profile, onClose, myStreak = 0, total
             <span>Member Joined: <strong>{new Date(profile.created_at || Date.now()).toLocaleDateString()}</strong></span>
           </div>
           <span style={{ fontSize: '0.75rem', fontWeight: '800', background: '#ffffff', padding: '0.25rem 0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
-            READ-ONLY PROFILE
+            VERIFIED PROFILE
           </span>
+        </div>
+
+        {/* PORTFOLIO QUICK ACTION BUTTONS */}
+        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem' }}>
+          <a
+            href={`/portfolio/${profile.id}`}
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              flex: 1,
+              background: '#0f172a',
+              color: '#ffffff',
+              textDecoration: 'none',
+              padding: '0.65rem',
+              borderRadius: '12px',
+              fontWeight: '800',
+              fontSize: '0.82rem',
+              textAlign: 'center',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.4rem',
+              boxShadow: '0 4px 12px rgba(15,23,42,0.2)'
+            }}
+          >
+            🌐 View Public Portfolio
+          </a>
+
+          <button
+            type="button"
+            onClick={() => {
+              const url = `${window.location.origin}/portfolio/${profile.id}`;
+              navigator.clipboard.writeText(url);
+              alert(`📋 Shareable Portfolio Link Copied!\n\n${url}`);
+            }}
+            style={{
+              flex: 1,
+              background: '#ffffff',
+              color: '#0f172a',
+              border: '1.5px solid #0f172a',
+              padding: '0.65rem',
+              borderRadius: '12px',
+              fontWeight: '800',
+              fontSize: '0.82rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.4rem'
+            }}
+          >
+            📋 Copy Portfolio Link
+          </button>
         </div>
       </div>
     </div>

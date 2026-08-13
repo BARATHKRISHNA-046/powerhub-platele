@@ -1300,14 +1300,17 @@ export const AppProvider = ({ children }) => {
 
   // Update Resume Profile for student
   const updateResumeProfile = (userId, updatedData) => {
-
-    setResumeProfiles(prev => ({
-      ...prev,
-      [userId]: {
-        ...(prev[userId] || {}),
-        ...updatedData
-      }
-    }));
+    setResumeProfiles(prev => {
+      const updated = {
+        ...prev,
+        [userId]: {
+          ...(prev[userId] || {}),
+          ...updatedData
+        }
+      };
+      saveAndBroadcastState({ resumeProfiles: updated });
+      return updated;
+    });
   };
 
   const getStudentHabitRecord = (studentId, dateStr) => {

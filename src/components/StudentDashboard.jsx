@@ -340,6 +340,33 @@ export default function StudentDashboard() {
           >
             🌐 My Portfolio
           </a>
+
+          <button
+            type="button"
+            onClick={() => {
+              const portfolioUrl = `${window.location.origin}/portfolio/${currentUser?.id}`;
+              navigator.clipboard.writeText(portfolioUrl);
+              alert(`📋 Shareable Portfolio Link Copied to Clipboard!\n\n${portfolioUrl}`);
+            }}
+            title="Copy shareable public portfolio link to clipboard"
+            style={{
+              background: '#ffffff',
+              color: '#0f172a',
+              border: '1.5px solid #0f172a',
+              padding: '0.55rem 1rem',
+              borderRadius: '12px',
+              fontWeight: '800',
+              fontSize: '0.85rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+              transition: 'all 0.25s ease'
+            }}
+          >
+            📋 Copy Portfolio Link
+          </button>
         </div>
 
         {/* RIGHT QUICK PLATFORM STATUS BADGES & PUSH PERMISSION */}
