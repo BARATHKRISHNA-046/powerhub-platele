@@ -319,6 +319,158 @@ export const AppProvider = ({ children }) => {
     };
   }, []);
 
+  const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
+
+  // SUPABASE REALTIME MULTI-DEVICE CROSS-DEVICE EVENT HANDLER
+  const handleSupabaseRealtimeEvent = React.useCallback((payload) => {
+    if (!payload) return;
+    const { table, eventType, new: newRow, old: oldRow } = payload;
+    console.log(`⚡ [Supabase Realtime Event] ${table} -> ${eventType}`, payload);
+
+    if (table === 'submissions' || table === 'deliverables') {
+      if (eventType === 'INSERT' || eventType === 'UPDATE') {
+        if (!newRow) return;
+        const item = {
+          id: newRow.id,
+          studentId: newRow.student_id || newRow.studentId || newRow.user_id,
+          studentName: newRow.student_name || newRow.studentName,
+          projectTitle: newRow.project_title || newRow.projectTitle || newRow.round_name,
+          githubUrl: newRow.github_url || newRow.githubUrl,
+          demoUrl: newRow.demo_url || newRow.demoUrl || newRow.demo_link,
+          imageAttachment: newRow.image_attachment || newRow.imageAttachment || newRow.media_url,
+          status: newRow.status || 'approved',
+          submittedAt: newRow.submitted_at || newRow.submittedAt || newRow.created_at,
+          score: newRow.score || 0
+        };
+
+        setSubmissions(prev => {
+          const map = new Map(prev.map(s => [s.id, s]));
+          map.set(item.id, { ...(map.get(item.id) || {}), ...item });
+          return Array.from(map.values()).sort((a, b) => new Date(b.submittedAt || 0).getTime() - new Date(a.submittedAt || 0).getTime());
+        });
+      } else if (eventType === 'DELETE' && oldRow?.id) {
+        setSubmissions(prev => prev.filter(s => s.id !== oldRow.id));
+      }
+    } else if (table === 'profiles' || table === 'users') {
+      if (eventType === 'INSERT' || eventType === 'UPDATE') {
+        if (!newRow) return;
+        setUsers(prev => {
+          const map = new Map(prev.map(u => [u.id, u]));
+          const existing = map.get(newRow.id) || {};
+          map.set(newRow.id, {
+            ...existing,
+            ...newRow,
+            id: newRow.id,
+            name: newRow.name || newRow.full_name || existing.name,
+            email: newRow.email || existing.email,
+            role: newRow.role || existing.role,
+            domain: newRow.domain || existing.domain
+          });
+          return Array.from(map.values());
+        });
+      } else if (eventType === 'DELETE' && oldRow?.id) {
+        setUsers(prev => prev.filter(u => u.id !== oldRow.id));
+      }
+    } else if (table === 'daily_habit_states') {
+      if (eventType === 'INSERT' || eventType === 'UPDATE') {
+        if (!newRow) return;
+        const studentId = newRow.student_id || newRow.studentId;
+        const dateStr = newRow.date_str || newRow.dateStr;
+        const key = `${studentId}_${dateStr}`;
+        setDailyHabitStates(prev => ({
+          ...prev,
+          [key]: {
+            studyDone: Boolean(newRow.study_done || newRow.studyDone),
+            submitDone: Boolean(newRow.submit_done || newRow.submitDone),
+            updatedAt: newRow.updated_at || new Date().toISOString()
+          }
+        }));
+      } else if (eventType === 'DELETE' && oldRow) {
+        const key = `${oldRow.student_id}_${oldRow.date_str}`;
+        setDailyHabitStates(prev => {
+          const copy = { ...prev };
+          delete copy[key];
+          return copy;
+        });
+      }
+    } else if (table === 'manual_mentor_marks') {
+      if (eventType === 'INSERT' || eventType === 'UPDATE') {
+        if (!newRow) return;
+        const studentId = newRow.student_id || newRow.studentId;
+        const markVal = Number(newRow.mark_val || newRow.markVal || 0);
+        setManualMentorMarks(prev => ({
+          ...prev,
+          [studentId]: markVal
+        }));
+      }
+    } else if (table === 'certificates') {
+      if (eventType === 'INSERT' || eventType === 'UPDATE') {
+        if (!newRow) return;
+        setCertificates(prev => {
+          const map = new Map(prev.map(c => [c.id, c]));
+          map.set(newRow.id, { ...(map.get(newRow.id) || {}), ...newRow });
+          return Array.from(map.values());
+        });
+      } else if (eventType === 'DELETE' && oldRow?.id) {
+        setCertificates(prev => prev.filter(c => c.id !== oldRow.id));
+      }
+    } else if (table === 'announcements') {
+      if (eventType === 'INSERT' || eventType === 'UPDATE') {
+        if (!newRow) return;
+        setAnnouncements(prev => {
+          const map = new Map(prev.map(a => [a.id, a]));
+          map.set(newRow.id, { ...(map.get(newRow.id) || {}), ...newRow });
+          return Array.from(map.values()).sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+        });
+      } else if (eventType === 'DELETE' && oldRow?.id) {
+        setAnnouncements(prev => prev.filter(a => a.id !== oldRow.id));
+      }
+    } else if (table === 'teams' || table === 'hackathon_teams') {
+      if (eventType === 'INSERT' || eventType === 'UPDATE') {
+        if (!newRow) return;
+        setTeams(prev => {
+          const map = new Map(prev.map(t => [t.id, t]));
+          map.set(newRow.id, { ...(map.get(newRow.id) || {}), ...newRow });
+          return Array.from(map.values());
+        });
+      } else if (eventType === 'DELETE' && oldRow?.id) {
+        setTeams(prev => prev.filter(t => t.id !== oldRow.id));
+      }
+    }
+  }, []);
+
+  // SUPABASE REALTIME SUBSCRIPTION EFFECT FOR TRUE CROSS-DEVICE SYNC
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase) return;
+
+    console.log('📡 [Supabase Realtime] Initializing cross-device live subscription...');
+
+    const channel = supabase
+      .channel('powerhub-global-realtime-v1')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public' },
+        (payload) => {
+          handleSupabaseRealtimeEvent(payload);
+        }
+      )
+      .subscribe((status, err) => {
+        if (status === 'SUBSCRIBED') {
+          setIsRealtimeConnected(true);
+          console.log('⚡ [Supabase Realtime] SUBSCRIBED: Listening to live changes across all devices!');
+        } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+          setIsRealtimeConnected(false);
+          console.warn(`⚠️ [Supabase Realtime] Channel status: ${status}. Triggering cloud sync fallback...`);
+          fetchLatestCloudDb();
+        }
+      });
+
+    return () => {
+      console.log('🧹 [Supabase Realtime] Unsubscribing channel listener...');
+      supabase.removeChannel(channel);
+    };
+  }, [handleSupabaseRealtimeEvent]);
+
   // DIRECT SUPABASE DATABASE READ & LIVE SYNC FUNCTION WITH SMART MERGE & SERVER RELAY
   const fetchLatestCloudDb = async () => {
     try {
@@ -2304,6 +2456,7 @@ export const AppProvider = ({ children }) => {
       pushSubscriptions,
       notificationLogs,
       registerPushSubscription,
+      isRealtimeConnected,
       showProfileSetupModal,
       setShowProfileSetupModal,
       showUserProfileModal,
