@@ -371,27 +371,63 @@ export const AppProvider = ({ children }) => {
       } else if (eventType === 'DELETE' && oldRow?.id) {
         setUsers(prev => prev.filter(u => u.id !== oldRow.id));
       }
-    } else if (table === 'daily_habit_states') {
+    } else if (table === 'daily_habits' || table === 'daily_habit_states') {
       if (eventType === 'INSERT' || eventType === 'UPDATE') {
         if (!newRow) return;
         const studentId = newRow.student_id || newRow.studentId;
         const dateStr = newRow.date_str || newRow.dateStr;
-        const key = `${studentId}_${dateStr}`;
-        setDailyHabitStates(prev => ({
-          ...prev,
-          [key]: {
-            studyDone: Boolean(newRow.study_done || newRow.studyDone),
-            submitDone: Boolean(newRow.submit_done || newRow.submitDone),
-            updatedAt: newRow.updated_at || new Date().toISOString()
-          }
-        }));
+        const key = studentId && dateStr ? `${studentId}_${dateStr}` : (newRow.key || dateStr);
+        if (key) {
+          setDailyHabitStates(prev => ({
+            ...prev,
+            [key]: {
+              studyDone: Boolean(newRow.study_done ?? newRow.studyDone),
+              submitDone: Boolean(newRow.submit_done ?? newRow.submitDone),
+              updatedAt: newRow.updated_at || new Date().toISOString()
+            }
+          }));
+        }
       } else if (eventType === 'DELETE' && oldRow) {
-        const key = `${oldRow.student_id}_${oldRow.date_str}`;
-        setDailyHabitStates(prev => {
-          const copy = { ...prev };
-          delete copy[key];
-          return copy;
+        const key = oldRow.key || (oldRow.student_id && oldRow.date_str ? `${oldRow.student_id}_${oldRow.date_str}` : null);
+        if (key) {
+          setDailyHabitStates(prev => {
+            const copy = { ...prev };
+            delete copy[key];
+            return copy;
+          });
+        }
+      }
+    } else if (table === 'score_audit_logs') {
+      if (eventType === 'INSERT' || eventType === 'UPDATE') {
+        if (!newRow) return;
+        setAuditLogs(prev => {
+          const map = new Map(prev.map(a => [a.id, a]));
+          map.set(newRow.id, { ...(map.get(newRow.id) || {}), ...newRow });
+          return Array.from(map.values()).sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
         });
+      } else if (eventType === 'DELETE' && oldRow?.id) {
+        setAuditLogs(prev => prev.filter(a => a.id !== oldRow.id));
+      }
+    } else if (table === 'meet_sessions') {
+      if (eventType === 'INSERT' || eventType === 'UPDATE') {
+        if (!newRow) return;
+        setGoogleMeetConfig(prev => ({
+          ...prev,
+          meetUrl: newRow.meet_url || newRow.meetUrl || prev.meetUrl,
+          topic: newRow.topic || prev.topic,
+          timing: newRow.timing || prev.timing
+        }));
+      }
+    } else if (table === 'notifications') {
+      if (eventType === 'INSERT' || eventType === 'UPDATE') {
+        if (!newRow) return;
+        setNotificationLogs(prev => {
+          const map = new Map(prev.map(n => [n.id, n]));
+          map.set(newRow.id, { ...(map.get(newRow.id) || {}), ...newRow });
+          return Array.from(map.values());
+        });
+      } else if (eventType === 'DELETE' && oldRow?.id) {
+        setNotificationLogs(prev => prev.filter(n => n.id !== oldRow.id));
       }
     } else if (table === 'manual_mentor_marks') {
       if (eventType === 'INSERT' || eventType === 'UPDATE') {
@@ -751,12 +787,12 @@ export const AppProvider = ({ children }) => {
   };
 
 
-  // AUTOMATIC MULTI-DEVICE REALTIME CLOUD SYNC: Supabase Realtime + Polling + Focus Event Listeners
+  // AUTOMATIC MULTI-DEVICE REALTIME CLOUD SYNC: Safety-net Polling + Focus Event Listeners
   useEffect(() => {
     fetchLatestCloudDb();
 
-    // 1. Periodic 3-Second Background Cloud Polling (Syncs live across phones/laptops/browsers)
-    const pollInterval = setInterval(fetchLatestCloudDb, 3000);
+    // 1. Periodic 30-Second Background Safety Net Polling
+    const pollInterval = setInterval(fetchLatestCloudDb, 30000);
 
     // 2. Refetch on Window Focus & Online (Instant sync when user switches tabs or wakes device screen)
     const handleFocus = () => fetchLatestCloudDb();
@@ -764,22 +800,10 @@ export const AppProvider = ({ children }) => {
     window.addEventListener('focus', handleFocus);
     window.addEventListener('online', handleOnline);
 
-    // 3. Supabase Realtime WebSocket Listener (Subscribes to live DB inserts & updates)
-    const realtimeChannel = supabase
-      .channel('powerhub-live-sync-v2')
-      .on('postgres_changes', { event: '*', schema: 'public' }, (payload) => {
-        console.log('⚡ [Supabase Realtime Payload Received]', payload);
-        fetchLatestCloudDb();
-      })
-      .subscribe((status) => {
-        console.log('⚡ [Supabase Realtime Channel Status]:', status);
-      });
-
     return () => {
       clearInterval(pollInterval);
       window.removeEventListener('focus', handleFocus);
       window.removeEventListener('online', handleOnline);
-      supabase.removeChannel(realtimeChannel);
     };
   }, []);
 
