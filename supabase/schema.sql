@@ -12,7 +12,9 @@ ALTER PUBLICATION supabase_realtime ADD TABLE
   daily_habits, 
   notifications,
   meet_sessions,
-  score_audit_logs;
+  score_audit_logs,
+  manual_mentor_marks,
+  certificates;
 
 -- 2. PROFILES TABLE
 CREATE TABLE IF NOT EXISTS profiles (
@@ -142,7 +144,35 @@ CREATE POLICY "Allow public select notifications" ON notifications FOR SELECT US
 CREATE POLICY "Allow public insert notifications" ON notifications FOR INSERT WITH CHECK (true);
 CREATE POLICY "Allow public update notifications" ON notifications FOR UPDATE USING (true);
 
--- 10. STORAGE BUCKET SETUP (powerhub-media)
+-- 10. MANUAL MENTOR MARKS TABLE
+CREATE TABLE IF NOT EXISTS manual_mentor_marks (
+  student_id TEXT PRIMARY KEY REFERENCES profiles(id) ON DELETE CASCADE,
+  mark_val INTEGER NOT NULL DEFAULT 0,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE manual_mentor_marks ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow public select manual_mentor_marks" ON manual_mentor_marks FOR SELECT USING (true);
+CREATE POLICY "Allow public insert manual_mentor_marks" ON manual_mentor_marks FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update manual_mentor_marks" ON manual_mentor_marks FOR UPDATE USING (true);
+CREATE POLICY "Allow public delete manual_mentor_marks" ON manual_mentor_marks FOR DELETE USING (true);
+
+-- 11. CERTIFICATES TABLE
+CREATE TABLE IF NOT EXISTS certificates (
+  id TEXT PRIMARY KEY,
+  student_id TEXT NOT NULL,
+  student_name TEXT NOT NULL,
+  program_title TEXT NOT NULL,
+  issued_at TIMESTAMPTZ DEFAULT NOW(),
+  verification_id TEXT UNIQUE NOT NULL,
+  pdf_url TEXT DEFAULT ''
+);
+ALTER TABLE certificates ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow public select certificates" ON certificates FOR SELECT USING (true);
+CREATE POLICY "Allow public insert certificates" ON certificates FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update certificates" ON certificates FOR UPDATE USING (true);
+CREATE POLICY "Allow public delete certificates" ON certificates FOR DELETE USING (true);
+
+-- 12. STORAGE BUCKET SETUP (powerhub-media)
 INSERT INTO storage.buckets (id, name, public) 
 VALUES ('powerhub-media', 'powerhub-media', true)
 ON CONFLICT (id) DO NOTHING;

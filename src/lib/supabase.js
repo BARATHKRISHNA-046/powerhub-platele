@@ -288,7 +288,41 @@ export async function syncDailyHabitToSupabase(studentId, dateStr, habitRecord) 
   }
 }
 
+export async function syncManualMentorMarkToSupabase(studentId, markVal) {
+  if (!studentId) return;
+  console.log('🔄 [Supabase DB Write] Upserting manual mentor mark:', studentId, markVal);
+  try {
+    const payload = {
+      student_id: studentId,
+      mark_val: Number(markVal || 0),
+      updated_at: new Date().toISOString()
+    };
+    const { data, error } = await supabase.from('manual_mentor_marks').upsert(payload);
+    if (error) {
+      console.warn('⚠️ [Supabase DB Manual Mark Warning]:', error.message);
+    } else {
+      console.log('✅ [Supabase DB Manual Mark Success]:', data);
+    }
+  } catch (err) {
+    console.warn('⚠️ [Supabase DB Manual Mark Exception]:', err.message);
+  }
+}
+
 // --- READ HELPERS ---
+
+export async function fetchManualMentorMarksFromSupabase() {
+  try {
+    const { data, error } = await supabase.from('manual_mentor_marks').select('*');
+    if (error) {
+      console.warn('⚠️ [Supabase Fetch Manual Marks Notice]:', error.message);
+      return null;
+    }
+    return data;
+  } catch (err) {
+    console.warn('⚠️ [Supabase Fetch Manual Marks Exception]:', err.message);
+    return null;
+  }
+}
 
 export async function fetchProfilesFromSupabase() {
   try {

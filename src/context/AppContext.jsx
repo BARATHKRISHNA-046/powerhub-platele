@@ -44,11 +44,13 @@ import {
   deleteTeamFromSupabase,
   syncSubmissionToSupabase,
   syncDailyHabitToSupabase,
+  syncManualMentorMarkToSupabase,
   fetchProfilesFromSupabase,
   fetchAnnouncementsFromSupabase,
   fetchTeamsFromSupabase,
   fetchSubmissionsFromSupabase,
   fetchDailyHabitsFromSupabase,
+  fetchManualMentorMarksFromSupabase,
   fetchUserQuickLinksFromSupabase,
   saveUserQuickLinkClickInSupabase,
   fetchTechNewsFromSupabase,
@@ -777,6 +779,21 @@ export const AppProvider = ({ children }) => {
             }
           });
           saveAndBroadcastState({ dailyHabitStates: updated });
+          return updated;
+        });
+      }
+
+      // 6. Query Manual Mentor Marks Table from Supabase
+      const dbMarks = await fetchManualMentorMarksFromSupabase();
+      if (dbMarks && Array.isArray(dbMarks)) {
+        setManualMentorMarks(prev => {
+          const updated = { ...prev };
+          dbMarks.forEach(m => {
+            if (m.student_id) {
+              updated[m.student_id] = Number(m.mark_val || 0);
+            }
+          });
+          saveAndBroadcastState({ manualMentorMarks: updated });
           return updated;
         });
       }
@@ -2333,6 +2350,9 @@ export const AppProvider = ({ children }) => {
       saveAndBroadcastState({ manualMentorMarks: updated });
       return updated;
     });
+
+    // Write to Supabase manual_mentor_marks table (upsert for instant realtime sync across devices)
+    syncManualMentorMarkToSupabase(studentId, numericMarks);
 
     // Create Audit Log record
     const auditRecord = {
