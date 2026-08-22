@@ -76,52 +76,7 @@ export default function Navbar() {
             </div>
           </a>
 
-          {/* TOP-LEVEL NAV TABS: Dashboard vs SIH Hackathon */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', background: '#f1f5f9', padding: '3px', borderRadius: '14px', border: '1px solid #cbd5e1' }}>
-            <button
-              onClick={() => setActiveTopTab('dashboard')}
-              style={{
-                padding: '0.45rem 0.9rem',
-                borderRadius: '10px',
-                border: 'none',
-                background: activeTopTab === 'dashboard' ? '#ffffff' : 'transparent',
-                color: activeTopTab === 'dashboard' ? '#0f172a' : '#64748b',
-                fontWeight: '800',
-                fontSize: '0.82rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.35rem',
-                cursor: 'pointer',
-                boxShadow: activeTopTab === 'dashboard' ? '0 2px 6px rgba(0,0,0,0.08)' : 'none',
-                transition: 'all 0.2s ease'
-              }}
-            >
-              <LayoutDashboard size={15} />
-              <span>Dashboard</span>
-            </button>
 
-            <button
-              onClick={() => setActiveTopTab('hackathon')}
-              style={{
-                padding: '0.45rem 0.9rem',
-                borderRadius: '10px',
-                border: 'none',
-                background: activeTopTab === 'hackathon' ? 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)' : 'transparent',
-                color: activeTopTab === 'hackathon' ? '#0f172a' : '#64748b',
-                fontWeight: '900',
-                fontSize: '0.82rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.35rem',
-                cursor: 'pointer',
-                boxShadow: activeTopTab === 'hackathon' ? '0 2px 8px rgba(245,158,11,0.3)' : 'none',
-                transition: 'all 0.2s ease'
-              }}
-            >
-              <Trophy size={15} style={{ color: activeTopTab === 'hackathon' ? '#0f172a' : '#d97706' }} />
-              <span>SIH Hackathon</span>
-            </button>
-          </div>
 
           {/* User Profile & Dual Role Switcher */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>

@@ -139,9 +139,7 @@ function MainLayout() {
     <div className="app-container">
       <Navbar />
       <main className="main-content">
-        {activeTopTab === 'hackathon' ? (
-          <HackathonModule />
-        ) : currentRoleView === 'student' ? (
+        {currentRoleView === 'student' ? (
           <StudentDashboard />
         ) : (
           <MentorDashboard />
