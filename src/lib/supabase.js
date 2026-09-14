@@ -562,18 +562,7 @@ export async function syncTechNewsInSupabase(articles) {
   return articles;
 }
 
-export const INITIAL_CERTIFICATES = [
-  {
-    id: 'cert-1',
-    student_id: 'user-barath-001',
-    student_name: 'Barath Krishna H',
-    domain: 'FULLSTACK',
-    program_title: 'Fullstack & AI Engineering 7-Month Program Completion',
-    issued_at: new Date().toISOString(),
-    mentor_signature: 'Barath Krishna (Lead Mentor & Engineering Director)',
-    verification_id: 'PH-CERT-2026-X89B2Q'
-  }
-];
+export const INITIAL_CERTIFICATES = [];
 
 export async function fetchCertificatesFromSupabase(studentId) {
   if (!isSupabaseConfigured) {

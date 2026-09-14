@@ -64,6 +64,13 @@ export default function StudentDashboard() {
     }
   };
 
+  // Live Relative Timestamp Ticker
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setTick(t => t + 1), 30000);
+    return () => clearInterval(timer);
+  }, []);
+
   const currentUserId = currentUser?.id || 'usr-alex';
   const myStreak = (calculateStudentStreak && currentUserId) ? calculateStudentStreak(currentUserId) : 0;
 
@@ -1471,24 +1478,51 @@ export default function StudentDashboard() {
                               </svg>
                             </div>
                             <div>
-                              <h3 style={{ fontSize: '1.05rem', fontWeight: '900', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                              <h3 style={{ fontSize: '1.05rem', fontWeight: '900', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                                 Tech Industry Pulse
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.62rem', fontWeight: '800', background: '#dcfce7', color: '#15803d', border: '1px solid #86efac', padding: '0.1rem 0.45rem', borderRadius: '9999px', letterSpacing: '0.03em' }}>
+                                  <span className="live-pulse-dot"></span>
+                                  LIVE
+                                </span>
                               </h3>
-                              <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: '600' }}>Layoffs, Hiring & Jobs</span>
+                              <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: '600' }}>Real-Time Layoffs, Hiring & Jobs</span>
                             </div>
                           </div>
                           
-                          <span style={{ 
-                            fontSize: '0.68rem', 
-                            color: status.isUnopened ? '#4338ca' : '#ea580c', 
-                            fontWeight: '800', 
-                            background: status.isUnopened ? '#e0e7ff' : '#fff7ed', 
-                            padding: '0.2rem 0.5rem', 
-                            borderRadius: '9999px', 
-                            border: '1px solid ' + (status.isUnopened ? '#c7d2fe' : '#fed7aa') 
-                          }}>
-                            {status.text}
-                          </span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (refreshTechNews) refreshTechNews();
+                              }}
+                              title="Sync Live Feed"
+                              style={{
+                                background: '#f1f5f9',
+                                border: '1px solid #cbd5e1',
+                                borderRadius: '8px',
+                                padding: '0.2rem 0.45rem',
+                                cursor: 'pointer',
+                                fontSize: '0.72rem',
+                                color: '#475569',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.2rem'
+                              }}
+                            >
+                              🔄 Sync
+                            </button>
+                            <span style={{ 
+                              fontSize: '0.68rem', 
+                              color: status.isUnopened ? '#4338ca' : '#ea580c', 
+                              fontWeight: '800', 
+                              background: status.isUnopened ? '#e0e7ff' : '#fff7ed', 
+                              padding: '0.2rem 0.5rem', 
+                              borderRadius: '9999px', 
+                              border: '1px solid ' + (status.isUnopened ? '#c7d2fe' : '#fed7aa') 
+                            }}>
+                              {status.text}
+                            </span>
+                          </div>
                         </div>
 
                         {/* News Feed List (3 items) */}
