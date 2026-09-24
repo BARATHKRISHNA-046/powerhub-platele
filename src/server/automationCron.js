@@ -16,9 +16,15 @@ import fs from 'fs';
 import path from 'path';
 import nodemailer from 'nodemailer';
 import { sendWebPushNotification } from './pushService.js';
+import { fetchAndPersistLiveTechNews } from './techPulseWorker.js';
+import { createClient } from '@supabase/supabase-js';
 
 const TIMEZONE = 'Asia/Kolkata';
 const STORE_PATH = path.resolve(process.cwd(), 'server_db_store.json');
+
+const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
 
 // Helper to read server_db_store.json
 function readStore() {
@@ -95,69 +101,30 @@ export function initAutomationCronScheduler() {
   console.log('🚀 [Automation Scheduler] Initializing Powerhub node-cron jobs in Asia/Kolkata timezone...');
 
   // =========================================================
-  // A1. 11:00 PM IST Cutoff Auto-Lock & Missed Flagging
+  // A1. 11:10 PM IST Cutoff Auto-Penalty Execution (Idempotent DB Stored Procedure)
   // =========================================================
-  cron.schedule('0 23 * * *', async () => {
-    console.log('🔒 [Cron A1] 11:00 PM IST Cutoff Auto-Lock triggered.');
-    const store = readStore();
-    const users = store.users || [];
-    const submissions = store.submissions || [];
-    const habits = store.habits || {};
-    const ledger = store.pointsLedger || [];
-    
-    // Get IST today date string (YYYY-MM-DD)
-    const istDateStr = new Date().toLocaleDateString('en-CA', { timeZone: TIMEZONE });
-    let missedCount = 0;
-    let updatedHabits = { ...habits };
-    let updatedLedger = [...ledger];
-
-    for (const student of users) {
-      if (student.roles && student.roles.includes('mentor')) continue;
-
-      const subKey = `${student.id}_${istDateStr}`;
-      const hasSubmitted = submissions.some(
-        s => s.studentId === student.id && (s.date === istDateStr || (s.submittedAt && s.submittedAt.startsWith(istDateStr)))
-      );
-
-      if (!hasSubmitted) {
-        missedCount++;
-        updatedHabits[subKey] = {
-          ...(updatedHabits[subKey] || {}),
-          submitDone: false,
-          isMissed: true,
-          lockedAt: new Date().toISOString()
-        };
-
-        // Record -2 penalty points in points_ledger if not already penalized today
-        const alreadyPenalized = updatedLedger.some(
-          e => e.studentId === student.id && e.dateStr === istDateStr && e.reason === 'Missed 11 PM Cutoff Penalty'
-        );
-
-        if (!alreadyPenalized) {
-          updatedLedger.push({
-            id: `ledger-miss-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-            studentId: student.id,
-            dateStr: istDateStr,
-            amount: -2,
-            reason: 'Missed 11 PM Cutoff Penalty',
-            createdAt: new Date().toISOString()
-          });
+  cron.schedule('10 23 * * *', async () => {
+    console.log('🔒 [Cron A1] 11:10 PM IST Cutoff Auto-Penalty Triggered.');
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.rpc('process_daily_habit_penalties_ist');
+        if (error) {
+          console.warn('⚠️ [Cron A1] DB Penalty RPC Warning:', error.message);
+        } else {
+          console.log('✅ [Cron A1] Idempotent Penalty RPC Executed Successfully:', data);
         }
+      } catch (err) {
+        console.error('❌ [Cron A1] Penalty RPC Exception:', err.message);
       }
     }
+  }, { timezone: TIMEZONE });
 
-    writeStore({
-      isCutoffLockedToday: true,
-      cutoffLockedAt: new Date().toISOString(),
-      habits: updatedHabits,
-      pointsLedger: updatedLedger
-    });
-
-    appendAutomationLog({
-      actionType: 'A1_CUTOFF_AUTO_LOCK',
-      affectedStudentId: 'all_students',
-      details: `11 PM IST Cutoff locked. ${missedCount} student(s) marked Missed with -2 penalty points logged.`
-    });
+  // =========================================================
+  // A5. Every 4 Hours: Automated Tech Pulse News Worker
+  // =========================================================
+  cron.schedule('0 */4 * * *', async () => {
+    console.log('📰 [Cron A5] Automated Tech Pulse News Fetcher Triggered.');
+    await fetchAndPersistLiveTechNews();
   }, { timezone: TIMEZONE });
 
   // =========================================================
