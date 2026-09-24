@@ -173,22 +173,6 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({ activeProfile 
 
   useEffect(() => {
     loadData();
-
-    let channel: any = null;
-    if (isSupabaseConfigured) {
-      channel = supabase
-        .channel('mentor_dashboard_realtime')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'submissions' }, loadData)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'teams' }, loadData)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'announcements' }, loadData)
-        .subscribe();
-    }
-
-    return () => {
-      if (channel) {
-        supabase.removeChannel(channel);
-      }
-    };
   }, []);
 
   // Post Announcement (Real-time to all student devices)

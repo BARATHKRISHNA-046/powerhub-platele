@@ -62,35 +62,9 @@ export function App() {
 
   // Load notifications when active profile changes
   useEffect(() => {
-    let channel: any = null;
     if (activeProfile) {
       fetchNotificationsFromSupabase(activeProfile.id).then(setNotifications);
-
-      // Realtime Notification Subscription (Architecture Rule 4)
-      if (isSupabaseConfigured) {
-        channel = supabase
-          .channel(`notifs_${activeProfile.id}`)
-          .on(
-            'postgres_changes',
-            {
-              event: 'INSERT',
-              schema: 'public',
-              table: 'notifications',
-              filter: `student_id=eq.${activeProfile.id}`
-            },
-            (payload) => {
-              setNotifications((prev) => [payload.new as NotificationItem, ...prev]);
-            }
-          )
-          .subscribe();
-      }
     }
-
-    return () => {
-      if (channel) {
-        supabase.removeChannel(channel);
-      }
-    };
   }, [activeProfile]);
 
   const handleSelectProfile = (profile: UserProfile) => {

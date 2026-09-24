@@ -327,7 +327,7 @@ export const AppProvider = ({ children }) => {
   const handleSupabaseRealtimeEvent = React.useCallback((payload) => {
     if (!payload) return;
     const { table, eventType, new: newRow, old: oldRow } = payload;
-    console.log(`⚡ [Supabase Realtime Event] ${table} -> ${eventType}`, payload);
+    console.log(`⚡ [Realtime Event Debug] Table: ${table} | Event: ${eventType} | Time: ${new Date().toLocaleTimeString()} | Payload:`, payload);
 
     if (table === 'submissions' || table === 'deliverables') {
       if (eventType === 'INSERT' || eventType === 'UPDATE') {
@@ -377,8 +377,8 @@ export const AppProvider = ({ children }) => {
       if (eventType === 'INSERT' || eventType === 'UPDATE') {
         if (!newRow) return;
         const studentId = newRow.student_id || newRow.studentId;
-        const dateStr = newRow.date_str || newRow.dateStr;
-        const key = studentId && dateStr ? `${studentId}_${dateStr}` : (newRow.key || dateStr);
+        const dateStr = newRow.business_date || newRow.date_str || newRow.dateStr;
+        const key = studentId && dateStr ? `${studentId}_${dateStr}` : (newRow.id || newRow.key || dateStr);
         if (key) {
           setDailyHabitStates(prev => ({
             ...prev,
@@ -390,7 +390,7 @@ export const AppProvider = ({ children }) => {
           }));
         }
       } else if (eventType === 'DELETE' && oldRow) {
-        const key = oldRow.key || (oldRow.student_id && oldRow.date_str ? `${oldRow.student_id}_${oldRow.date_str}` : null);
+        const key = oldRow.id || oldRow.key || (oldRow.student_id && oldRow.date_str ? `${oldRow.student_id}_${oldRow.date_str}` : null);
         if (key) {
           setDailyHabitStates(prev => {
             const copy = { ...prev };
@@ -398,6 +398,17 @@ export const AppProvider = ({ children }) => {
             return copy;
           });
         }
+      }
+    } else if (table === 'tech_news') {
+      if (eventType === 'INSERT' || eventType === 'UPDATE') {
+        if (!newRow) return;
+        setTechNews(prev => {
+          const map = new Map(prev.map(n => [n.id, n]));
+          map.set(newRow.id, { ...(map.get(newRow.id) || {}), ...newRow });
+          return Array.from(map.values()).sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime());
+        });
+      } else if (eventType === 'DELETE' && oldRow?.id) {
+        setTechNews(prev => prev.filter(n => n.id !== oldRow.id));
       }
     } else if (table === 'score_audit_logs') {
       if (eventType === 'INSERT' || eventType === 'UPDATE') {
