@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Comprehensive environment variable fallbacks for Vite, Next.js, and Vercel Supabase integration
+// Comprehensive environment variable fallbacks for Supabase integration
 
 const supabaseUrl = 
   import.meta.env?.VITE_SUPABASE_URL || 

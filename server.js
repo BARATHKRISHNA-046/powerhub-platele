@@ -32,7 +32,7 @@ app.use(express.json());
 // Serve built frontend static assets from dist/
 app.use(express.static(path.join(__dirname, 'dist')));
 
-// Railway Health Check Endpoint
+// Health Check Endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'ok',
