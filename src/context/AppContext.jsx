@@ -365,7 +365,8 @@ export const AppProvider = ({ children }) => {
             id: newRow.id,
             name: newRow.name || newRow.full_name || existing.name,
             email: newRow.email || existing.email,
-            role: newRow.role || existing.role,
+            avatarUrl: newRow.avatar_url || newRow.profile_pic_url || existing.avatarUrl,
+            roles: newRow.roles || existing.roles || ['student'],
             domain: newRow.domain || existing.domain
           });
           return Array.from(map.values());
@@ -428,7 +429,7 @@ export const AppProvider = ({ children }) => {
           ...prev,
           meetUrl: newRow.meet_url || newRow.meetUrl || prev.meetUrl,
           topic: newRow.topic || prev.topic,
-          timing: newRow.timing || prev.timing
+          timing: newRow.time_str || newRow.timing || prev.timing
         }));
       }
     } else if (table === 'notifications') {
@@ -466,9 +467,19 @@ export const AppProvider = ({ children }) => {
     } else if (table === 'announcements') {
       if (eventType === 'INSERT' || eventType === 'UPDATE') {
         if (!newRow) return;
+        const item = {
+          id: newRow.id,
+          authorId: newRow.author_id || newRow.authorId,
+          authorName: newRow.author_name || newRow.authorName,
+          bootcampId: newRow.bootcamp_id || newRow.bootcampId || 'all',
+          title: newRow.title,
+          message: newRow.message,
+          isPinned: newRow.is_pinned ?? newRow.isPinned ?? true,
+          createdAt: newRow.created_at || newRow.createdAt || new Date().toISOString()
+        };
         setAnnouncements(prev => {
           const map = new Map(prev.map(a => [a.id, a]));
-          map.set(newRow.id, { ...(map.get(newRow.id) || {}), ...newRow });
+          map.set(item.id, { ...(map.get(item.id) || {}), ...item });
           return Array.from(map.values()).sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
         });
       } else if (eventType === 'DELETE' && oldRow?.id) {
@@ -477,9 +488,18 @@ export const AppProvider = ({ children }) => {
     } else if (table === 'teams' || table === 'hackathon_teams') {
       if (eventType === 'INSERT' || eventType === 'UPDATE') {
         if (!newRow) return;
+        const item = {
+          id: newRow.id,
+          name: newRow.name,
+          emojiCombo: newRow.emoji_combo || newRow.emojiCombo || '🐉🔥',
+          leadStudentId: newRow.lead_student_id || newRow.leadStudentId,
+          memberIds: newRow.member_ids || newRow.memberIds || [],
+          githubUrl: newRow.github_url || newRow.githubUrl || '',
+          createdAt: newRow.created_at || newRow.createdAt || new Date().toISOString()
+        };
         setTeams(prev => {
           const map = new Map(prev.map(t => [t.id, t]));
-          map.set(newRow.id, { ...(map.get(newRow.id) || {}), ...newRow });
+          map.set(item.id, { ...(map.get(item.id) || {}), ...item });
           return Array.from(map.values());
         });
       } else if (eventType === 'DELETE' && oldRow?.id) {
