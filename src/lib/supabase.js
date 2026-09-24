@@ -174,13 +174,13 @@ export async function syncAnnouncementToSupabase(announcement) {
   try {
     const payload = {
       id: announcement.id,
-      author_id: announcement.authorId,
-      author_name: announcement.authorName,
-      bootcamp_id: announcement.bootcampId || 'all',
+      author_id: announcement.authorId || announcement.author_id || 'user-barath',
+      author_name: announcement.authorName || announcement.author_name || 'BARATHKRISHNA H (Mentor)',
+      bootcamp_id: announcement.bootcampId || announcement.bootcamp_id || 'all',
       title: announcement.title,
       message: announcement.message,
-      created_at: announcement.createdAt || new Date().toISOString(),
-      is_pinned: announcement.isPinned ?? true
+      created_at: announcement.createdAt || announcement.created_at || new Date().toISOString(),
+      is_pinned: announcement.isPinned ?? announcement.is_pinned ?? true
     };
     const { data, error } = await supabase.from('announcements').upsert(payload);
     if (error) {
